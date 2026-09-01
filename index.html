@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>IPTV Tizen App</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.7.1/dist/hls.min.js"></script>
+    <script src="https://unpkg.com/lucide@1.38.0/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+
+    <!-- 1. VUE LOGIN -->
+    <div id="login-view" class="view active">
+        <div class="login-box">
+            <h1>CONNEXION IPTV</h1>
+            <div class="input-group">
+                <label>URL du Serveur (Xtream API)</label>
+                <input type="text" id="iptv-url" value="http://2.900900.me" class="focused">
+            </div>
+            <div class="input-group">
+                <label>Nom d'utilisateur</label>
+                <input type="text" id="iptv-user" value="">
+            </div>
+            <div class="input-group">
+                <label>Mot de passe</label>
+                <input type="password" id="iptv-pass" value="">
+            </div>
+            <button class="login-btn" id="login-submit-btn" onclick="connectToIPTV()">SE CONNECTER</button>
+        </div>
+    </div>
+
+    <!-- Vue Splash : affichee juste apres connexion, le temps de pre-charger
+         les categories de chaque section (cf. showSplashAndPreload) pour que
+         Films/Series/Direct s'ouvrent instantanement des l'arrivee sur l'accueil. -->
+    <div id="splash-view" class="view">
+        <img src="icon.png" alt="bTV" class="splash-logo">
+        <div class="splash-progress-track">
+            <div class="splash-progress-fill" id="splash-progress-fill"></div>
+        </div>
+        <div class="splash-status" id="splash-status">Chargement...</div>
+    </div>
+
+    <!-- 2. VUE HOME (Dashboard) -->
+    <div id="home-view" class="view">
+        <!-- Fond anime "aurore" verte, purement decoratif -->
+        <div class="home-aurora" aria-hidden="true">
+            <div class="aurora-blob aurora-blob-1"></div>
+            <div class="aurora-blob aurora-blob-2"></div>
+            <div class="aurora-blob aurora-blob-3"></div>
+        </div>
+
+        <div class="home-header">
+            <div class="home-logo"><img src="icon.png" alt="bTV" class="home-logo-icon">bTV</div>
+            <div class="home-account">
+                <span class="account-expiry" id="home-expiry">Expiration : —</span>
+            </div>
+            <div class="home-icons">
+                <div class="home-icon" id="home-icon-user" tabindex="0"><i data-lucide="user" class="header-icon-svg"></i></div>
+                <div class="home-icon" id="home-icon-refresh" tabindex="0"><i data-lucide="refresh-cw" class="header-icon-svg"></i></div>
+                <div class="home-icon" id="home-icon-settings" tabindex="0"><i data-lucide="settings" class="header-icon-svg"></i></div>
+            </div>
+        </div>
+
+        <div class="home-center">
+            <div class="home-menu" id="home-menu">
+                <div class="home-btn" data-target="favorites">
+                    <div class="home-btn-square"><i data-lucide="star" class="home-icon-svg"></i></div>
+                    <div class="home-btn-label">Favoris</div>
+                </div>
+                <div class="home-btn" data-target="live">
+                    <div class="home-btn-square"><i data-lucide="tv" class="home-icon-svg"></i></div>
+                    <div class="home-btn-label">En Direct</div>
+                </div>
+                <div class="home-btn" data-target="movies">
+                    <div class="home-btn-square"><i data-lucide="clapperboard" class="home-icon-svg"></i></div>
+                    <div class="home-btn-label">Films</div>
+                </div>
+                <div class="home-btn" data-target="series">
+                    <div class="home-btn-square"><i data-lucide="film" class="home-icon-svg"></i></div>
+                    <div class="home-btn-label">Séries</div>
+                </div>
+                <div class="home-btn" data-target="replay">
+                    <div class="home-btn-square"><i data-lucide="rotate-ccw" class="home-icon-svg"></i></div>
+                    <div class="home-btn-label">Rediffusion</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. VUE BROWSE (En Direct / Films / Series / Rediffusion) -->
+    <div id="browse-view" class="view">
+        <div class="browse-sidebar" id="browse-sidebar">
+            <div class="browse-sidebar-header">
+                <button class="browse-back-btn" id="browse-back-btn">←</button>
+                <h2 id="browse-title">—</h2>
+            </div>
+            <input type="text" id="browse-cat-search" class="browse-search" placeholder="Rechercher une catégorie...">
+            <div class="browse-cat-list" id="browse-cat-list"></div>
+        </div>
+
+        <div class="browse-main" id="browse-main">
+            <div class="content-search-row" id="content-search-row">
+                <input type="text" id="browse-search" class="browse-search browse-search-top" placeholder="Rechercher dans cette catégorie...">
+                <button type="button" class="search-icon-btn" id="search-clear-btn" title="Effacer la recherche">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+
+            <div class="browse-synopsis">
+                <div class="synopsis-backdrop" id="synopsis-backdrop"></div>
+                <div class="synopsis-card">
+                    <div class="synopsis-top-row">
+                        <h2 id="synopsis-title">—</h2>
+                        <div class="synopsis-actions">
+                            <div class="synopsis-fav-btn" id="synopsis-fav-btn">
+                                <i data-lucide="star" class="synopsis-fav-icon"></i>
+                                <span id="synopsis-fav-label">Ajouter aux favoris</span>
+                            </div>
+                            <!-- Visible uniquement dans "Recemment consultes" (cf. railIsRecentList) -->
+                            <div class="synopsis-fav-btn synopsis-remove-btn" id="synopsis-remove-btn">
+                                <i data-lucide="trash-2" class="synopsis-fav-icon"></i>
+                                <span>Retirer de l'historique</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="synopsis-meta" class="synopsis-meta"></div>
+                    <p id="synopsis-text" class="synopsis-text"></p>
+                    <div id="synopsis-cast" class="synopsis-cast"></div>
+                </div>
+            </div>
+
+            <div class="browse-rail">
+                <div class="rail-title" id="rail-title">—</div>
+                <div class="rail-track" id="rail-track"></div>
+            </div>
+
+            <!-- Direct : liste de chaines + panneau EPG dedie, remplace le
+                 rail d'affiches + synopsis ci-dessus quand browseSectionKey
+                 === 'live' (cf. renderRailOrChannelList). Ne touche pas au
+                 markup films/series au-dessus. -->
+            <div class="live-layout" id="live-layout">
+                <div class="live-channel-col">
+                    <div class="rail-title" id="live-rail-title">—</div>
+                    <div class="live-channel-list" id="live-channel-list"></div>
+                </div>
+                <div class="live-epg-panel">
+                    <div class="live-epg-header">
+                        <img id="live-epg-logo" class="live-epg-logo" alt="" onerror="this.style.display='none'">
+                        <h2 id="live-epg-channel-name">—</h2>
+                        <div class="synopsis-fav-btn" id="live-epg-fav-btn">
+                            <i data-lucide="star" class="synopsis-fav-icon"></i>
+                            <span id="live-epg-fav-label">Ajouter aux favoris</span>
+                        </div>
+                        <div class="synopsis-fav-btn synopsis-remove-btn" id="live-epg-remove-btn">
+                            <i data-lucide="trash-2" class="synopsis-fav-icon"></i>
+                            <span>Retirer de l'historique</span>
+                        </div>
+                    </div>
+                    <div class="live-epg-date" id="live-epg-date"></div>
+                    <div class="live-epg-programs" id="live-epg-programs"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale de reprise : proposee avant de lancer un contenu deja entame.
+         Se ferme automatiquement sur "Recommencer" au bout de 30s sans reponse. -->
+    <div id="resume-dialog" class="modal-overlay">
+        <div class="modal-box">
+            <h3 id="resume-dialog-title">—</h3>
+            <div class="modal-row">Reprendre à <strong id="resume-dialog-time">00:00</strong> ou recommencer depuis le début ?</div>
+            <div class="modal-actions">
+                <div class="modal-btn focused" id="resume-dialog-continue" data-action="continue">Reprendre</div>
+                <div class="modal-btn" id="resume-dialog-restart" data-action="restart">Recommencer</div>
+            </div>
+            <div class="modal-row resume-dialog-countdown" id="resume-dialog-countdown"></div>
+        </div>
+    </div>
+
+    <!-- Modale Parametres -->
+    <div id="settings-modal" class="modal-overlay">
+        <div class="modal-box modal-box-wide">
+            <h3>Paramètres</h3>
+            <div class="settings-info">
+                <div class="modal-row"><strong>Serveur :</strong> <span id="settings-server-url"></span></div>
+                <div class="modal-row"><strong>Adresse MAC :</strong> <span id="settings-mac"></span></div>
+                <div class="modal-row"><strong>Mémoire utilisée par l'app :</strong> <span id="settings-memory"></span></div>
+            </div>
+            <div class="modal-actions modal-actions-stacked">
+                <div class="modal-btn focused" id="settings-close-btn" data-action="close">Fermer</div>
+                <div class="modal-btn" id="settings-server-btn" data-action="server">Modifier le serveur</div>
+                <div class="modal-btn" id="settings-theme-btn" data-action="theme">Thème clair/sombre</div>
+                <div class="modal-btn" id="settings-perf-btn" data-action="perf">Performances à l'écran : <span id="settings-perf-state">Désactivées</span></div>
+                <div class="modal-btn" id="settings-logout-btn" data-action="logout">Se déconnecter</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale Compte / Abonnement -->
+    <div id="account-modal" class="modal-overlay">
+        <div class="modal-box">
+            <h3>Mon compte</h3>
+            <div class="modal-row"><strong>Utilisateur :</strong> <span id="account-username"></span></div>
+            <div class="modal-row"><strong>Statut :</strong> <span id="account-status"></span></div>
+            <div class="modal-row"><strong>Expiration :</strong> <span id="account-expiry-detail"></span></div>
+            <div class="modal-row"><strong>Connexions max :</strong> <span id="account-max-connections"></span></div>
+            <div class="modal-actions">
+                <div class="modal-btn focused" id="account-close-btn" data-action="close">Fermer</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="app-toast" class="app-toast"></div>
+
+    <!-- 4. VUE LECTEUR VIDEO -->
+    <div id="player-view" class="view" style="position: relative;">
+        <video id="video-player"></video>
+        <!-- Lecteur natif Samsung (webapis.avplay), utilise uniquement pour le
+             contenu detecte MULTI : seule API capable d'exposer les pistes
+             audio/sous-titres embarquees dans un conteneur mp4/ts/mkv
+             quelconque, la ou <video>+hls.js exige un manifeste HLS. -->
+        <object id="av-player" type="application/avplayer" style="width:100%; height:100%; position:absolute; top:0; left:0; display:none;"></object>
+        <div id="avplay-subtitle-overlay" class="avplay-subtitle-overlay"></div>
+        <!-- Visible pendant le chargement/mise en tampon, pour ne pas
+             confondre une simple latence reseau avec une erreur (cf.
+             showPlayerLoadingSpinner). -->
+        <div id="player-loading" class="player-loading-overlay">
+            <div class="player-spinner"></div>
+            <div class="player-loading-text" id="player-loading-text">Chargement...</div>
+        </div>
+        <div id="player-error"></div>
+        <div id="player-toast" class="player-toast"></div>
+
+        <!-- Menu de selection de piste audio / sous-titres -->
+        <div id="player-track-menu" class="player-track-menu">
+            <div id="track-menu-title" class="track-menu-title">Piste audio</div>
+            <div id="track-menu-list" class="track-menu-list"></div>
+        </div>
+
+        <!-- HUD principal -->
+        <div id="player-osd" class="player-osd">
+            <div class="osd-info-row">
+                <div class="osd-info-left">
+                    <img id="osd-logo" class="osd-logo" src="" alt="" onerror="this.style.display='none'">
+                    <div class="osd-titles">
+                        <div id="osd-program-name" class="osd-program-name">—</div>
+                        <div id="osd-category-name" class="osd-category-name">—</div>
+                    </div>
+                </div>
+                <div class="osd-info-right">
+                    <span class="osd-badge">HD</span>
+                    <span id="osd-clock" class="osd-clock">--:--</span>
+                    <span id="osd-remaining" class="osd-remaining"></span>
+                </div>
+            </div>
+
+            <div class="osd-progress-row">
+                <span id="player-time-current" class="osd-time">00:00</span>
+                <div class="osd-progress-track" id="osd-progress-track">
+                    <div id="player-progress-fill" class="osd-progress-fill"></div>
+                    <div id="player-progress-handle" class="osd-progress-handle"></div>
+                </div>
+                <span id="player-time-duration" class="osd-time">00:00</span>
+                <span id="osd-live-badge" class="osd-live-badge">● EN DIRECT</span>
+            </div>
+
+            <div class="osd-buttons-row">
+                <div class="osd-btn" id="player-btn-playpause"></div>
+                <div class="osd-btn" id="player-btn-next">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="white"><path d="M6 4l10 8-10 8V4zM18 4h2v16h-2z"/></svg>
+                    <span class="osd-btn-label">Suivant</span>
+                </div>
+                <div class="osd-btn" id="player-btn-audio">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="white"><path d="M12 3a9 9 0 0 0-9 9v7a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2H5v-1a7 7 0 0 1 14 0v1h-2a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2v-7a9 9 0 0 0-9-9z"/></svg>
+                    <span class="osd-btn-label" id="label-audio">Audio</span>
+                </div>
+                <div class="osd-btn" id="player-btn-subtitle">
+                    <svg viewBox="0 0 24 24" width="20" height="20"><rect x="2" y="5" width="20" height="14" rx="3" fill="none" stroke="white" stroke-width="1.8"/><text x="12" y="15.5" font-size="8" font-weight="700" fill="white" text-anchor="middle" font-family="Arial, sans-serif">CC</text></svg>
+                    <span class="osd-btn-label" id="label-subtitle">Off</span>
+                </div>
+            </div>
+
+            <!-- Liste des autres episodes/chaines du contexte en cours, repliee par
+                 defaut : Bas depuis la barre de progression ou la rangee de boutons
+                 la deploie (remplace l'ancien tiroir de zapping en modal). -->
+            <div class="osd-episode-list" id="osd-episode-list"></div>
+        </div>
+    </div>
+
+    <!-- HUD de performances (RAM/FPS/CPU) : hors des vues pour rester visible
+         en permanence, navigation et lecture comprises, tant qu'il est actif
+         (cf. togglePerfHud dans Parametres). -->
+    <div id="perf-hud" class="perf-hud">
+        <div>FPS : <span id="perf-fps">--</span></div>
+        <div>Mémoire JS : <span id="perf-mem">--</span></div>
+        <div>CPU : <span id="perf-cpu">--</span></div>
+        <div>GPU : non exposé par la plateforme</div>
+    </div>
+
+    <script src="js/main.js"></script>
+</body>
+</html>

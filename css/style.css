@@ -1,0 +1,401 @@
+:root {
+    --bg-black: #060606;
+    --bg-app: #0c0c0c;
+    --bg-surface: #1a1a1a;
+    --bg-surface-2: #262626;
+    --bg-surface-3: #333333;
+    --border-subtle: #333333;
+    --text-primary: #ffffff;
+    --text-secondary: #c7c7c7;
+    --text-muted: #8a8a8a;
+    --text-faint: #666666;
+    --accent: #17b355;
+    --accent-rgb: 23, 179, 85;
+    --accent-strong: #0e8f42;
+    --accent-bright: #4cda3e;
+    --accent-bright-rgb: 76, 218, 62;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+body { background-color: var(--bg-black); color: var(--text-primary); width: 1920px; height: 1080px; overflow: hidden; }
+
+/* Vues */
+.view { display: none; width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; }
+.view.active { display: flex; }
+
+/* Login */
+#login-view { flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(135deg, #1c1c1c 0%, #060606 100%); }
+.login-box { background: var(--bg-surface); padding: 50px; border-radius: 12px; width: 600px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); }
+.login-box h1 { margin-bottom: 30px; font-size: 32px; color: var(--accent-bright); text-align: center; }
+.input-group { margin-bottom: 20px; }
+.input-group label { display: block; margin-bottom: 8px; color: var(--text-muted); font-size: 16px; }
+.input-group input { width: 100%; padding: 15px; background: var(--bg-app); border: 2px solid var(--border-subtle); border-radius: 6px; color: var(--text-primary); font-size: 18px; outline: none; }
+.input-group input.focused { border-color: var(--accent); background: var(--bg-surface-2); }
+.login-btn { width: 100%; padding: 15px; background: var(--accent); border: none; border-radius: 6px; color: #fff; font-size: 20px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+.login-btn.focused { background: var(--accent-bright); box-shadow: 0 0 15px rgba(var(--accent-bright-rgb), 0.6); }
+
+/* Splash : pre-chargement des categories juste apres connexion */
+#splash-view { flex-direction: column; align-items: center; justify-content: center; gap: 30px; background: linear-gradient(135deg, #1c1c1c 0%, #060606 100%); }
+.splash-logo { width: 120px; height: 120px; border-radius: 26px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); }
+.splash-progress-track { width: 380px; height: 6px; background: rgba(255,255,255,0.12); border-radius: 3px; overflow: hidden; }
+.splash-progress-fill { height: 100%; width: 0%; background: var(--accent); transition: width 0.3s ease; }
+.splash-status { color: var(--text-muted); font-size: 15px; }
+
+/* ------------------------------------------------------------- */
+/* Home Dashboard */
+/* ------------------------------------------------------------- */
+#home-view { flex-direction: column; background: radial-gradient(circle at 50% 0%, var(--bg-surface) 0%, var(--bg-black) 65%); padding: 50px 70px; overflow: hidden; }
+
+/* Passe au-dessus du fond anime (voir .home-aurora plus bas) */
+.home-header, .home-center { position: relative; z-index: 1; }
+
+.home-header { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+.home-logo { display: flex; align-items: center; gap: 16px; font-size: 38px; font-weight: 800; color: var(--accent-bright); letter-spacing: 1px; }
+.home-logo-icon { height: 60px; width: 60px; object-fit: contain; border-radius: 12px; }
+
+.home-account { color: var(--text-secondary); font-size: 16px; text-align: center; }
+.account-expiry {
+    display: inline-block;
+    padding: 10px 22px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.08);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(0,255,135,0.3);
+    color: #eafff2;
+    font-weight: 600;
+    font-size: 15px;
+    letter-spacing: 0.3px;
+    text-shadow: 0 0 8px rgba(0,255,135,0.35);
+}
+
+.home-icons { display: flex; gap: 14px; }
+.home-icon { display: flex; align-items: center; justify-content: center; width: 46px; height: 46px; border-radius: 12px; color: var(--text-secondary); border: 1px solid transparent; transition: all 0.15s ease; outline: none; }
+.home-icon .header-icon-svg { width: 24px; height: 24px; }
+.home-icon.focused { color: #fff; background: rgba(255,255,255,0.1); border-color: var(--accent); transform: scale(1.12); }
+
+/* Occupe tout l'espace restant sous le header et centre le menu dedans
+   (remplace l'ancienne repartition en 3 bandes header/menu/barre du bas,
+   la barre du bas n'existant plus). */
+.home-center { flex-grow: 1; display: flex; align-items: center; justify-content: center; }
+
+.home-menu { display: flex; justify-content: center; align-items: flex-start; gap: 50px; }
+.home-btn { display: flex; flex-direction: column; align-items: center; gap: 20px; opacity: 0.75; }
+.home-btn-square { width: 168px; height: 168px; border-radius: 36px; background: var(--bg-surface); display: flex; align-items: center; justify-content: center; color: var(--text-secondary); border: 3px solid rgba(255,255,255,0.06); transition: all 0.2s ease; }
+.home-btn-square .home-icon-svg { width: 68px; height: 68px; stroke-width: 1.6; }
+.home-btn-label { font-size: 22px; color: var(--text-secondary); font-weight: 600; }
+.home-btn.focused { opacity: 1; }
+.home-btn.focused .home-btn-square { background: linear-gradient(135deg, var(--accent-bright), var(--accent-strong)); color: #fff; border-color: #fff; transform: scale(1.12); box-shadow: 0 0 35px rgba(var(--accent-rgb),0.65); }
+.home-btn.focused .home-btn-label { color: #fff; }
+
+/* Fond anime "aurore" verte, purement decoratif. N'anime qu'un transform
+   (compositor-only, aucun JS/reflow) pour rester leger sur une TV ; actif
+   uniquement sur l'ecran d'accueil, jamais pendant la lecture video. */
+.home-aurora { position: absolute; left: 0; right: 0; top: 28%; height: 36%; overflow: hidden; pointer-events: none; z-index: 0; filter: blur(80px); }
+.aurora-blob { position: absolute; top: 0; width: 46vw; height: 100%; border-radius: 50%; background: radial-gradient(circle, rgba(0,255,135,0.55) 0%, rgba(0,230,118,0.25) 45%, transparent 70%); will-change: transform; }
+.aurora-blob-1 { left: -18vw; animation: aurora-drift-1 22s ease-in-out infinite; }
+.aurora-blob-2 { left: 32vw; opacity: 0.7; animation: aurora-drift-2 27s ease-in-out infinite; }
+.aurora-blob-3 { left: 62vw; opacity: 0.5; animation: aurora-drift-3 31s ease-in-out infinite; }
+
+@keyframes aurora-drift-1 { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(36vw, 3vh); } }
+@keyframes aurora-drift-2 { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(-30vw, -3vh); } }
+@keyframes aurora-drift-3 { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(-42vw, 2vh); } }
+
+/* ------------------------------------------------------------- */
+/* Browse (En Direct / Films / Series / Rediffusion) */
+/* ------------------------------------------------------------- */
+#browse-view { flex-direction: row; background: var(--bg-black); }
+
+.browse-sidebar { width: 420px; background: var(--bg-surface); padding: 32px 26px; display: flex; flex-direction: column; gap: 18px; transition: width 0.25s ease, opacity 0.2s ease, padding 0.25s ease; overflow: hidden; flex-shrink: 0; }
+.browse-sidebar.collapsed { width: 0; padding-left: 0; padding-right: 0; opacity: 0; }
+.browse-sidebar-header { display: flex; align-items: center; gap: 14px; }
+.browse-back-btn { background: rgba(255,255,255,0.08); border: none; color: #fff; width: 44px; height: 44px; border-radius: 8px; font-size: 20px; flex-shrink: 0; cursor: pointer; }
+.browse-sidebar-header h2 { font-size: 26px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.browse-search { padding: 15px 18px; background: var(--bg-app); border: 2px solid var(--border-subtle); border-radius: 8px; color: #fff; font-size: 18px; outline: none; }
+.browse-search.focused { border-color: var(--accent); background: var(--bg-surface-2); }
+/* Barre de recherche du contenu (films/series/chaines de la categorie) :
+   ancree en haut de la zone principale, toujours visible (contrairement a
+   celle de la sidebar, qui se replie en mode rail), et centree avec son
+   bouton "effacer" (la dictee vocale passe par le clavier virtuel Samsung
+   lui-meme, pas par un bouton de l'app — cf. handleEnter zone 'search'). */
+.content-search-row { display: flex; align-items: center; gap: 14px; width: fit-content; margin: 0 auto 22px; }
+.browse-search-top { width: 480px; max-width: 100%; flex-shrink: 0; }
+.search-icon-btn { display: flex; align-items: center; justify-content: center; width: 54px; height: 54px; border-radius: 50%; border: 2px solid var(--border-subtle); background: var(--bg-app); color: #ddd; flex-shrink: 0; cursor: pointer; transition: all 0.15s ease; }
+.search-icon-btn i { width: 24px; height: 24px; }
+.search-icon-btn.focused { border-color: var(--accent); background: var(--bg-surface-2); color: #fff; transform: scale(1.06); }
+.browse-cat-list { flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+.browse-cat-item { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 16px 18px; border-radius: 8px; color: var(--text-muted); font-size: 18px; white-space: nowrap; overflow: hidden; border: 2px solid transparent; }
+.browse-cat-item .cat-name { overflow: hidden; text-overflow: ellipsis; }
+.browse-cat-item.system { color: #e2e2e2; font-weight: 600; }
+.browse-cat-item .cat-count { color: var(--text-faint); font-size: 15px; flex-shrink: 0; }
+.browse-cat-item.focused { background: rgba(255,255,255,0.1); border-color: var(--accent); color: #fff; }
+.browse-cat-item.focused .cat-count { color: #ddd; }
+.browse-cat-separator { height: 1px; background: var(--bg-surface-3); margin: 6px 4px; flex-shrink: 0; }
+
+.browse-main { flex-grow: 1; display: flex; flex-direction: column; padding: 28px 44px; min-width: 0; }
+
+/* Hauteur fixe (et non flex:1) : le panel prend juste ce qu'il faut pour un
+   texte confortablement lisible, et laisse tout le reste de l'espace au
+   rail d'affiches ci-dessous — sinon un partage 50/50 stricte laisse trop
+   peu de place au rail pour l'effet de zoom sans rogner le haut des cartes. */
+.browse-synopsis { position: relative; border-radius: 16px; overflow: hidden; height: 400px; flex-shrink: 0; margin-bottom: 24px; background: var(--bg-surface); }
+.synopsis-backdrop { position: absolute; inset: 0; background-size: cover; background-position: center; filter: brightness(0.42); transition: opacity 0.2s ease; background-color: var(--bg-surface); }
+.synopsis-card { position: absolute; left: 0; bottom: 0; right: 0; padding: 34px 40px; background: linear-gradient(to top, rgba(6,6,6,0.96), rgba(6,6,6,0.6) 70%, transparent); }
+.synopsis-top-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 14px; }
+#synopsis-title { font-size: 38px; font-weight: 700; color: #fff; }
+.synopsis-actions { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+.synopsis-fav-btn { display: flex; align-items: center; gap: 10px; padding: 12px 20px; border-radius: 999px; border: 2px solid transparent; background: rgba(255,255,255,0.08); color: #ddd; font-size: 17px; font-weight: 600; flex-shrink: 0; white-space: nowrap; transition: all 0.15s ease; }
+.synopsis-fav-icon { width: 20px; height: 20px; }
+.synopsis-fav-btn.focused { border-color: var(--accent); background: rgba(255,255,255,0.18); color: #fff; transform: scale(1.06); }
+.synopsis-fav-btn.is-fav { color: var(--accent-bright); }
+.synopsis-fav-btn.is-fav .synopsis-fav-icon { fill: var(--accent-bright); color: var(--accent-bright); }
+/* Bouton de suppression de l'historique ("Recemment consultes" uniquement,
+   affiche/masque via JS comme synopsis-fav-btn, cf. railIsRecentList) :
+   teinte rouge pour signaler une action destructive plutot qu'un simple
+   bascule comme le favori. */
+.synopsis-remove-btn.focused { border-color: #ff6b6b; background: rgba(255,107,107,0.18); color: #fff; }
+.synopsis-meta { font-size: 20px; color: #ddd; margin-bottom: 14px; display: flex; gap: 20px; }
+.synopsis-meta .meta-imdb { color: var(--accent-bright); font-weight: 700; }
+.synopsis-text { font-size: 19px; line-height: 1.6; color: #ddd; max-width: 1000px; max-height: 92px; overflow: hidden; margin-bottom: 10px; }
+.synopsis-cast { font-size: 17px; color: var(--text-muted); }
+
+.browse-rail { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.rail-title { font-size: 24px; font-weight: 700; color: #fff; margin-bottom: 16px; flex-shrink: 0; }
+/* Le padding genereux (surtout en haut) est necessaire pour que l'effet de
+   surelevation (translateY + scale) de la carte selectionnee ne soit pas
+   coupe par l'overflow du conteneur. align-items:center evite un grand vide
+   sous les affiches quand la piste est plus haute que les affiches. */
+.rail-track { flex: 1; display: flex; gap: 30px; overflow-x: auto; overflow-y: hidden; padding: 70px 26px 40px; align-items: center; }
+.rail-poster { position: relative; width: 250px; height: 360px; flex-shrink: 0; border-radius: 10px; overflow: hidden; background: var(--bg-surface); border: 3px solid transparent; opacity: 0.72; transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease; }
+.rail-poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.rail-poster-fallback { display: flex; align-items: center; justify-content: center; height: 100%; padding: 12px; text-align: center; color: #ccc; font-size: 15px; font-weight: 600; }
+.rail-poster-title { position: absolute; left: 0; right: 0; bottom: 0; padding: 10px 12px; background: rgba(0,0,0,0.78); color: #fff; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rail-poster-badge { position: absolute; top: 10px; left: 10px; background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; padding: 4px 8px; border-radius: 4px; }
+.rail-poster-icons { position: absolute; top: 10px; right: 10px; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.rail-poster-fav-icon { display: none; color: var(--accent-bright); font-size: 18px; text-shadow: 0 0 4px rgba(0,0,0,0.8); }
+.rail-poster.is-fav .rail-poster-fav-icon { display: block; }
+/* Pastille "deja vu" : contenu termine (voir PROGRESS_DONE_RATIO cote JS) */
+.rail-poster-watched-icon { display: none; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 13px; font-weight: 700; align-items: center; justify-content: center; box-shadow: 0 0 4px rgba(0,0,0,0.8); }
+.rail-poster.is-watched .rail-poster-watched-icon { display: flex; }
+/* Liseret de reprise : position de lecture memorisee pour un contenu entame */
+.rail-poster-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 5px; background: rgba(255,255,255,0.25); z-index: 1; }
+.rail-poster-progress-fill { height: 100%; background: var(--accent-bright); }
+/* Effet "coverflow" leger : l'affiche selectionnee se souleve, grossit et
+   redevient pleinement opaque, ce qui la fait ressortir devant ses voisines
+   sans le carousel 3D d'origine (couteux et instable) : uniquement des
+   transform/opacity, donc compatible avec les performances de la TV. */
+.rail-poster.focused { opacity: 1; border-color: var(--accent); transform: translateY(-16px) scale(1.1); box-shadow: 0 20px 40px rgba(0,0,0,0.55), 0 0 30px rgba(var(--accent-rgb),0.55); z-index: 2; }
+.rail-empty, .rail-loading { color: var(--text-muted); font-size: 18px; padding: 40px 4px; }
+
+/* ------------------------------------------------------------- */
+/* Direct : liste de chaines + panneau EPG dedie (renderRailOrChannelList) */
+/* En mode live, le rail d'affiches/synopsis films-series est masque et ce
+   layout prend sa place — le markup et les regles ci-dessus restent donc
+   intacts pour Films/Series. */
+/* ------------------------------------------------------------- */
+.live-layout { display: none; }
+.browse-main.live-mode .browse-synopsis, .browse-main.live-mode .browse-rail { display: none; }
+.browse-main.live-mode .live-layout { display: flex; }
+
+.live-layout { flex: 1; min-height: 0; gap: 30px; }
+.live-channel-col { width: 520px; flex-shrink: 0; display: flex; flex-direction: column; min-height: 0; }
+.live-channel-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 4px 4px 4px 0; }
+.live-channel-row { display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-radius: 12px; border: 2px solid transparent; background: var(--bg-surface); transition: all 0.15s ease; }
+.live-channel-row img { width: 44px; height: 44px; object-fit: contain; border-radius: 8px; background: rgba(255,255,255,0.06); flex-shrink: 0; }
+.live-channel-fallback { width: 44px; height: 44px; border-radius: 8px; background: rgba(255,255,255,0.08); flex-shrink: 0; }
+.live-channel-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.live-channel-line1 { display: flex; align-items: baseline; gap: 10px; }
+.live-channel-name { color: #ddd; font-size: 17px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.live-channel-time { color: var(--text-faint); font-size: 13px; flex-shrink: 0; white-space: nowrap; }
+.live-channel-program { color: var(--text-muted); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Barre de progression du programme en cours sur chaque ligne (enrichie
+   progressivement, cf. enrichChannelListWithEpg) : vide tant que l'EPG de
+   cette chaine n'a pas encore ete recuperee. */
+.live-channel-progress { height: 3px; background: rgba(255,255,255,0.15); border-radius: 2px; overflow: hidden; margin-top: 2px; }
+.live-channel-progress-fill { height: 100%; width: 0%; background: var(--accent); }
+.live-channel-fav-icon { display: none; color: var(--accent-bright); font-size: 16px; flex-shrink: 0; }
+.live-channel-row.is-fav .live-channel-fav-icon { display: block; }
+.live-channel-row.focused { background: linear-gradient(90deg, rgba(var(--accent-rgb),0.35), rgba(var(--accent-rgb),0.08)); border-color: var(--accent); }
+.live-channel-row.focused .live-channel-name, .live-channel-row.focused .live-channel-program { color: #fff; }
+.live-channel-row.focused .live-channel-progress-fill { background: #fff; }
+
+.live-epg-panel { flex: 1.4; min-height: 0; display: flex; flex-direction: column; background: var(--bg-surface); border-radius: 16px; padding: 30px 36px; overflow: hidden; }
+.live-epg-header { display: flex; align-items: center; gap: 20px; margin-bottom: 16px; flex-shrink: 0; }
+.live-epg-logo { width: 64px; height: 64px; object-fit: contain; border-radius: 10px; background: rgba(255,255,255,0.06); flex-shrink: 0; }
+.live-epg-header h2 { flex: 1; font-size: 30px; font-weight: 700; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.live-epg-date { color: var(--text-faint); font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; flex-shrink: 0; }
+.live-epg-programs { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+.live-epg-program { display: flex; align-items: baseline; gap: 18px; padding: 14px 18px; border-radius: 10px; }
+.live-epg-time { color: var(--text-faint); font-size: 16px; font-weight: 600; flex-shrink: 0; width: 110px; }
+.live-epg-program-title { color: #ccc; font-size: 18px; }
+.live-epg-program-title em { color: var(--accent-bright); font-style: normal; font-weight: 700; margin-left: 10px; }
+.live-epg-program.is-now { background: rgba(255,255,255,0.08); }
+.live-epg-program.is-now .live-epg-time { color: var(--accent-bright); }
+.live-epg-program.is-now .live-epg-program-title { color: #fff; font-weight: 600; }
+
+/* ------------------------------------------------------------- */
+/* Modale Parametres */
+/* ------------------------------------------------------------- */
+.modal-overlay { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; z-index: 20; }
+.modal-overlay.visible { display: flex; }
+.modal-box { background: var(--bg-surface); border-radius: 14px; padding: 32px; width: 480px; }
+.modal-box.modal-box-wide { width: 620px; }
+.modal-box h3 { color: #fff; font-size: 22px; margin-bottom: 22px; }
+.settings-info { background: rgba(255,255,255,0.05); border-radius: 10px; padding: 18px 20px; margin-bottom: 24px; }
+.settings-info .modal-row:last-child { margin-bottom: 0; }
+.modal-row { margin-bottom: 14px; color: #ccc; font-size: 15px; }
+.modal-row strong { color: #fff; }
+.modal-actions { display: flex; gap: 14px; margin-top: 20px; }
+.modal-btn { flex: 1; padding: 14px 18px; background: rgba(255,255,255,0.08); border-radius: 8px; color: #fff; text-align: center; font-weight: 700; border: 2px solid transparent; }
+.modal-btn.focused { border-color: var(--accent); background: rgba(255,255,255,0.18); }
+/* Variante empilee (Parametres) : une rangee horizontale de boutons a
+   largeur egale forcait le texte le plus long ("Modifier le serveur") a
+   passer sur plusieurs lignes de façon disgracieuse. */
+.modal-actions-stacked { flex-direction: column; gap: 10px; }
+.modal-actions-stacked .modal-btn { text-align: left; padding: 16px 20px; font-size: 16px; }
+.modal-actions-stacked .modal-btn span { color: var(--accent-bright); font-weight: 700; }
+.resume-dialog-countdown { margin-top: 6px; margin-bottom: 0; color: var(--text-faint); font-size: 13px; text-align: center; }
+
+/* Toast applicatif global */
+.app-toast { display: none; position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%); background: rgba(10,10,10,0.92); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); color: #fff; padding: 16px 28px; border-radius: 12px; font-size: 16px; z-index: 50; }
+
+/* ------------------------------------------------------------- */
+/* Player Overlay — glassmorphism style Apple TV / TiviMate */
+/* ------------------------------------------------------------- */
+#player-view { background: #000; flex-direction: column; }
+video { width: 100%; height: 100%; object-fit: contain; }
+/* AVPlay ne rend pas les sous-titres lui-meme (contrairement a <video>) :
+   onsubtitlechange nous fournit le texte, affiche ici manuellement. */
+.avplay-subtitle-overlay { position: absolute; left: 0; right: 0; bottom: 110px; text-align: center; color: #fff; font-size: 26px; font-weight: 600; text-shadow: 0 2px 6px rgba(0,0,0,0.9), 0 0 2px rgba(0,0,0,0.9); pointer-events: none; padding: 0 60px; white-space: pre-line; z-index: 5; }
+
+/* Indicateur de chargement/mise en tampon du lecteur : evite de confondre
+   une simple latence reseau avec une erreur de lecture. */
+.player-loading-overlay { display: none; position: absolute; inset: 0; align-items: center; justify-content: center; flex-direction: column; gap: 18px; background: rgba(0,0,0,0.35); z-index: 8; pointer-events: none; }
+.player-loading-overlay.visible { display: flex; }
+.player-spinner { width: 64px; height: 64px; border-radius: 50%; border: 5px solid rgba(255,255,255,0.25); border-top-color: var(--accent-bright); animation: player-spin 0.9s linear infinite; }
+@keyframes player-spin { to { transform: rotate(360deg); } }
+.player-loading-text { color: #fff; font-size: 16px; font-weight: 600; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+
+/* Etat d'erreur : garde volontairement une teinte rouge, distincte de
+   la palette de marque, pour rester un signal d'alerte lisible. */
+#player-error { display: none; position: absolute; top: 30px; left: 40px; right: 40px; background: rgba(20,10,10,0.85); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); color: #ff6b6b; padding: 18px 24px; font-size: 16px; border-radius: 14px; white-space: pre-line; }
+.player-toast { display: none; position: absolute; top: 30px; right: 40px; background: rgba(10,10,10,0.85); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); color: #fff; padding: 14px 22px; border-radius: 12px; font-size: 15px; }
+
+.player-osd {
+    position: absolute; left: 40px; right: 40px; bottom: 40px;
+    background: rgba(10, 10, 10, 0.75);
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    padding: 24px 32px;
+    opacity: 0;
+    transform: translateY(24px);
+    pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.player-osd.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
+
+.osd-info-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+.osd-info-left { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.osd-logo { max-height: 50px; max-width: 90px; object-fit: contain; border-radius: 4px; background: rgba(255,255,255,0.05); }
+.osd-logo[src=""] , .osd-logo:not([src]) { display: none; }
+.osd-titles { display: flex; flex-direction: column; min-width: 0; }
+.osd-program-name { font-size: 18px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 640px; }
+.osd-category-name { font-size: 14px; color: var(--text-muted); margin-top: 2px; }
+.osd-info-right { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+.osd-badge { background: rgba(255,255,255,0.15); color: #fff; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 6px; letter-spacing: 0.5px; }
+.osd-clock { color: #fff; font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.osd-remaining { color: var(--text-muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+
+.osd-progress-row { display: flex; align-items: center; gap: 16px; margin-bottom: 22px; }
+.osd-time { color: #ddd; font-size: 14px; font-variant-numeric: tabular-nums; min-width: 48px; }
+.osd-progress-track { position: relative; flex-grow: 1; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; transition: height 0.15s ease; }
+.osd-progress-track.focused { height: 8px; }
+.osd-progress-fill { position: absolute; left: 0; top: 0; height: 100%; width: 0%; background: var(--accent); border-radius: 2px; }
+.osd-progress-handle { position: absolute; top: 50%; width: 14px; height: 14px; background: #fff; border-radius: 50%; left: 0%; transform: translate(-50%, -50%); box-shadow: 0 0 6px rgba(0,0,0,0.4); opacity: 0; transition: opacity 0.15s ease; }
+.osd-progress-track.focused .osd-progress-handle { opacity: 1; }
+.osd-live-badge { display: none; align-items: center; color: var(--accent-bright); font-size: 13px; font-weight: 700; letter-spacing: 0.5px; white-space: nowrap; }
+.osd-live-badge.visible { display: flex; }
+
+.osd-buttons-row { display: flex; align-items: center; gap: 12px; }
+.osd-btn { display: flex; align-items: center; gap: 8px; padding: 12px 18px; border-radius: 10px; background: rgba(255,255,255,0.06); border: 2px solid transparent; transition: all 0.15s ease; }
+.osd-btn.focused { background: rgba(255,255,255,0.2); border-color: var(--accent); transform: scale(1.1); }
+.osd-btn-label { color: #fff; font-size: 14px; font-weight: 600; white-space: nowrap; }
+/* Liste des autres episodes/chaines, repliee dans l'OSD (remplace l'ancien
+   tiroir de zapping en modal) : Bas depuis la barre de progression ou la
+   rangee de boutons la deploie, Haut/Bas dedans change la selection. */
+.osd-episode-list { max-height: 0; opacity: 0; overflow: hidden; margin-top: 0; display: flex; flex-direction: column; gap: 6px; transition: max-height 0.25s ease, opacity 0.2s ease, margin-top 0.25s ease; }
+.osd-episode-list.visible { max-height: 240px; opacity: 1; margin-top: 18px; overflow-y: auto; }
+.osd-episode-item { display: flex; align-items: center; gap: 14px; padding: 10px 14px; border-radius: 10px; border: 2px solid transparent; color: #ccc; font-size: 15px; flex-shrink: 0; }
+.osd-episode-item img { width: 42px; height: 42px; object-fit: cover; border-radius: 6px; background: rgba(255,255,255,0.08); flex-shrink: 0; }
+.osd-episode-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.osd-episode-item.focused { background: rgba(255,255,255,0.15); border-color: var(--accent); color: #fff; }
+.osd-episode-item.playing span::after { content: ' ●'; color: var(--accent-bright); }
+
+/* Menu de selection des pistes audio / sous-titres */
+.player-track-menu {
+    position: absolute; top: 50%; left: 50%; width: 420px; max-height: 60%;
+    transform: translate(-50%, -50%) scale(0.95);
+    background: rgba(10, 10, 10, 0.9);
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    padding: 22px;
+    display: flex; flex-direction: column; gap: 14px;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    z-index: 5;
+}
+.player-track-menu.visible { opacity: 1; transform: translate(-50%, -50%) scale(1); pointer-events: auto; }
+.track-menu-title { color: #fff; font-size: 18px; font-weight: 700; }
+.track-menu-list { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; }
+.track-menu-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 10px; border: 2px solid transparent; color: #ccc; font-size: 15px; }
+.track-menu-radio { width: 16px; height: 16px; border-radius: 50%; border: 2px solid #666; flex-shrink: 0; }
+.track-menu-item.active .track-menu-radio { border-color: var(--accent); background: radial-gradient(circle, var(--accent) 40%, transparent 44%); }
+.track-menu-item.focused { background: rgba(255,255,255,0.15); border-color: var(--accent); color: #fff; }
+
+/* ------------------------------------------------------------- */
+/* Theme clair (bouton "Thème") — s'applique a l'accueil et a la
+   navigation (Direct/Films/Series), qui reposent sur les variables
+   ci-dessus. Le login, le lecteur video et le panneau synopsis (pose sur
+   une image de fond) restent volontairement sombres, comme la plupart
+   des lecteurs video/ecrans de connexion, quel que soit le theme choisi. */
+/* ------------------------------------------------------------- */
+body.theme-light {
+    --bg-black: #f2f2f2;
+    --bg-app: #ffffff;
+    --bg-surface: #ffffff;
+    --bg-surface-2: #e9e9e9;
+    --bg-surface-3: #dcdcdc;
+    --border-subtle: #d0d0d0;
+    --text-primary: #111111;
+    --text-secondary: #333333;
+    --text-muted: #555555;
+    --text-faint: #777777;
+}
+
+body.theme-light .browse-sidebar-header h2,
+body.theme-light .browse-search,
+body.theme-light #rail-title,
+body.theme-light .home-btn.focused .home-btn-label,
+body.theme-light .home-icon.focused,
+body.theme-light .browse-cat-item.focused,
+body.theme-light .modal-btn.focused {
+    color: #111;
+}
+
+body.theme-light .browse-search::placeholder { color: #888; }
+
+body.theme-light .home-icon.focused,
+body.theme-light .browse-cat-item.focused,
+body.theme-light .modal-btn.focused {
+    background: rgba(0,0,0,0.06);
+}
+
+/* ------------------------------------------------------------- */
+/* HUD de performances (superpose a toute l'app, cf. togglePerfHud) */
+/* ------------------------------------------------------------- */
+.perf-hud { display: none; position: fixed; top: 16px; right: 16px; background: rgba(0,0,0,0.78); color: #4cda3e; font-family: "Consolas", "Courier New", monospace; font-size: 15px; line-height: 1.7; padding: 12px 16px; border-radius: 10px; border: 1px solid rgba(76,218,62,0.4); z-index: 9999; pointer-events: none; white-space: nowrap; }
+.perf-hud.visible { display: block; }

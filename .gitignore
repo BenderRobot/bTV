@@ -1,0 +1,8 @@
+# Artefacts de build Tizen (régénérés à chaque déploiement)
+.buildResult/
+.sign/
+*.wgt
+*.bak
+
+# État local du script de déploiement (IP de la TV sur cette machine)
+.tizen-deploy-state.json

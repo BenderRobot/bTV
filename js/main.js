@@ -3158,7 +3158,7 @@ async function showSplashAndPreload() {
     const SPLASH_MAX_MS = 6000;
     await Promise.race([preload, new Promise(resolve => setTimeout(resolve, SPLASH_MAX_MS))]);
 
-    const MIN_SPLASH_MS = 900;
+    const MIN_SPLASH_MS = 7000;
     const elapsed = Date.now() - splashStart;
     if (elapsed < MIN_SPLASH_MS) {
         await new Promise(resolve => setTimeout(resolve, MIN_SPLASH_MS - elapsed));

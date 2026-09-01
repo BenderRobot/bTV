@@ -84,6 +84,14 @@ function Get-OfflineSerial {
 function Auto-PushGit {
     Write-Host "`n=== Push Git Automatique (GitHub) ===" -ForegroundColor Cyan
     Push-Location $ProjectPath
+    # Git ecrit ses messages (meme non-fatals, ex. avertissements CRLF ou
+    # "no upstream branch") sur stderr. Avec $ErrorActionPreference = "Stop"
+    # (regle globale du script), PowerShell transforme ces lignes en erreurs
+    # terminantes des qu'elles apparaissent, avant meme qu'on ait pu tester
+    # $LASTEXITCODE nous-memes. On repasse donc en 'Continue' ici et on gere
+    # les echecs explicitement via $LASTEXITCODE, comme le reste du script.
+    $previousEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
     try {
         git --version | Out-Null
         
@@ -123,6 +131,7 @@ function Auto-PushGit {
         Write-Host "Erreur lors du push Git : $_" -ForegroundColor Red
     }
     finally {
+        $ErrorActionPreference = $previousEap
         Pop-Location
     }
 }

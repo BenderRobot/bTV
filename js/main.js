@@ -3305,6 +3305,15 @@ async function showSplashAndPreload() {
     const SPLASH_MAX_MS = 6000;
     await Promise.all([videoPlayed, Promise.race([preload, new Promise(resolve => setTimeout(resolve, SPLASH_MAX_MS))])]);
 
+    // Sur Tizen, la video est souvent affichee via un plan materiel distinct
+    // du DOM normal : masquer #splash-view (display:none) ne suffit pas
+    // toujours a faire disparaitre immediatement la derniere frame decodee,
+    // qui peut alors "fuiter" un instant au-dessus du lecteur suivant. Vider
+    // explicitement la source force la liberation de ce plan video.
+    video.pause();
+    video.removeAttribute('src');
+    video.load();
+
     enterHome();
 }
 

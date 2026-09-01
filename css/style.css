@@ -44,12 +44,11 @@ body { background-color: var(--bg-black); color: var(--text-primary); width: 192
 .login-btn { width: 100%; padding: 15px; background: var(--accent); border: none; border-radius: 6px; color: #fff; font-size: 20px; font-weight: bold; cursor: pointer; margin-top: 10px; }
 .login-btn.focused { background: var(--accent-bright); box-shadow: 0 0 15px rgba(var(--accent-bright-rgb), 0.6); }
 
-/* Splash : pre-chargement des categories juste apres connexion */
-#splash-view { position: relative; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(135deg, #1c1c1c 0%, #060606 100%); }
-.splash-logo { width: 120px; height: 120px; border-radius: 26px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); }
-.splash-progress-track { position: absolute; bottom: 70px; left: 50%; transform: translateX(-50%); width: 70%; max-width: 900px; height: 6px; background: rgba(255,255,255,0.12); border-radius: 3px; overflow: hidden; }
-.splash-progress-fill { height: 100%; width: 0%; background: var(--accent); transition: width linear; }
-.splash-status { position: absolute; bottom: 40px; left: 0; right: 0; text-align: center; color: var(--text-muted); font-size: 15px; }
+/* Splash : video de demarrage jouee pendant le pre-chargement des categories
+   (cf. showSplashAndPreload). Le fond sombre reste en filet de securite tant
+   que la video n'a pas encore affiche sa premiere frame (poster/chargement). */
+#splash-view { position: relative; background: linear-gradient(135deg, #1c1c1c 0%, #060606 100%); }
+.splash-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 
 /* ------------------------------------------------------------- */
 /* Home Dashboard */

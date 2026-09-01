@@ -3260,45 +3260,20 @@ function selectEpisodeListItem() {
     showPlayerControls();
 }
 
-// Ecran de demarrage affiche juste apres connexion : pre-charge les
-// categories de chaque section pendant que l'utilisateur regarde une barre
-// de progression, plutot que de le laisser decouvrir le temps de chargement
-// en ouvrant Films/Series/Direct pour la premiere fois. Si le panel est trop
-// lent, un delai de securite laisse quand meme passer vers l'accueil — le
-// pre-chargement continue alors en arriere-plan (l'ouverture normale d'une
-// section, plus tard, se contente sinon d'attendre comme avant).
-function waitNextPaint() {
-    return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-}
-
+// Ecran de demarrage affiche juste apres connexion : joue la video de splash
+// (images/splash.mp4) pendant que les categories de chaque section sont
+// pre-chargees en arriere-plan, plutot que de laisser l'utilisateur
+// decouvrir le temps de chargement en ouvrant Films/Series/Direct pour la
+// premiere fois. La duree de l'ecran suit celle de la video (fin de lecture)
+// plutot qu'un delai fixe ; si le pre-chargement est plus lent que la video,
+// un delai de securite le laisse continuer en arriere-plan (l'ouverture
+// normale d'une section, plus tard, se contente sinon d'attendre comme avant).
 async function showSplashAndPreload() {
     showView('splash');
-    const fill = document.getElementById('splash-progress-fill');
-    const status = document.getElementById('splash-status');
     const sections = ['live', 'movies', 'series'];
-    let done = 0;
-
-    // Garantit que l'ecran de demarrage est reellement peint au moins une
-    // fois avant de continuer : si tout est deja en cache (relances suivant
-    // le premier lancement), la boucle ci-dessous ne rencontre plus aucun
-    // "await" reseau et se resoudrait dans le meme tick que showView(),
-    // avant que le navigateur n'ait eu l'occasion d'afficher quoi que ce
-    // soit — l'app semble alors sauter directement (et de facon instable)
-    // vers l'accueil.
-    await waitNextPaint();
-    const splashStart = Date.now();
-
-    // La barre se remplit lineairement sur toute la duree minimale d'affichage,
-    // independamment de la vitesse reelle du pre-chargement (qui, en cache,
-    // se termine en quelques millisecondes) : elle sert de repere visuel de
-    // temps d'attente, pas de barre de progression reseau au sens strict.
-    const MIN_SPLASH_MS = 7000;
-    fill.style.transitionDuration = `${MIN_SPLASH_MS}ms`;
-    fill.style.width = '100%';
 
     const preload = (async () => {
         for (const sectionKey of sections) {
-            status.innerText = `Chargement : ${SECTION_LABELS[sectionKey] || sectionKey}`;
             if (!categoriesCache[sectionKey]) {
                 try {
                     const { serverUrl, username, password } = window.iptvServerConfig;
@@ -3308,18 +3283,27 @@ async function showSplashAndPreload() {
                     console.error(`Erreur pre-chargement categories (${sectionKey}):`, e);
                 }
             }
-            done++;
         }
         schedulePersistCaches();
     })();
 
-    const SPLASH_MAX_MS = 6000;
-    await Promise.race([preload, new Promise(resolve => setTimeout(resolve, SPLASH_MAX_MS))]);
+    const video = document.getElementById('splash-video');
+    // Filet de securite : autoplay bloque, fichier absent du build Tizen,
+    // codec non supporte... la video ne doit jamais bloquer l'acces a l'app.
+    const SPLASH_VIDEO_TIMEOUT_MS = 12000;
+    const videoPlayed = new Promise(resolve => {
+        let done = false;
+        const finish = () => { if (!done) { done = true; resolve(); } };
+        video.addEventListener('ended', finish, { once: true });
+        video.addEventListener('error', finish, { once: true });
+        setTimeout(finish, SPLASH_VIDEO_TIMEOUT_MS);
+        video.currentTime = 0;
+        const playPromise = video.play();
+        if (playPromise && playPromise.catch) playPromise.catch(finish);
+    });
 
-    const elapsed = Date.now() - splashStart;
-    if (elapsed < MIN_SPLASH_MS) {
-        await new Promise(resolve => setTimeout(resolve, MIN_SPLASH_MS - elapsed));
-    }
+    const SPLASH_MAX_MS = 6000;
+    await Promise.all([videoPlayed, Promise.race([preload, new Promise(resolve => setTimeout(resolve, SPLASH_MAX_MS))])]);
 
     enterHome();
 }

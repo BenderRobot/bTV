@@ -2605,8 +2605,12 @@ function playStream(url, name, categoryLabel, logo, resumeAt) {
     }
 
     const isLive = url.includes('/live/');
-    const isMulti = /\bmulti\b/i.test(name || '');
-    if (!isLive && isMulti && isAvplayAvailable()) {
+    // AVPlay est necessaire des qu'un titre annonce plusieurs pistes audio
+    // ("MULTI") OU des sous-titres embarques ("VOST"/"VOSTFR") : <video>+hls.js
+    // ne peut exposer aucune de ces pistes sans manifeste HLS, que ce panel
+    // ne genere pas pour la VOD/series (cf. resolveExtension).
+    const needsAvplayTracks = /\b(multi|vost(?:fr)?)\b/i.test(name || '');
+    if (!isLive && needsAvplayTracks && isAvplayAvailable()) {
         startAvplayPlayback(url, resumeAt);
     } else {
         stopAvplayIfActive();
@@ -3137,6 +3141,14 @@ async function showSplashAndPreload() {
     await waitNextPaint();
     const splashStart = Date.now();
 
+    // La barre se remplit lineairement sur toute la duree minimale d'affichage,
+    // independamment de la vitesse reelle du pre-chargement (qui, en cache,
+    // se termine en quelques millisecondes) : elle sert de repere visuel de
+    // temps d'attente, pas de barre de progression reseau au sens strict.
+    const MIN_SPLASH_MS = 7000;
+    fill.style.transitionDuration = `${MIN_SPLASH_MS}ms`;
+    fill.style.width = '100%';
+
     const preload = (async () => {
         for (const sectionKey of sections) {
             status.innerText = `Chargement : ${SECTION_LABELS[sectionKey] || sectionKey}`;
@@ -3150,7 +3162,6 @@ async function showSplashAndPreload() {
                 }
             }
             done++;
-            fill.style.width = `${Math.round((done / sections.length) * 100)}%`;
         }
         schedulePersistCaches();
     })();
@@ -3158,7 +3169,6 @@ async function showSplashAndPreload() {
     const SPLASH_MAX_MS = 6000;
     await Promise.race([preload, new Promise(resolve => setTimeout(resolve, SPLASH_MAX_MS))]);
 
-    const MIN_SPLASH_MS = 7000;
     const elapsed = Date.now() - splashStart;
     if (elapsed < MIN_SPLASH_MS) {
         await new Promise(resolve => setTimeout(resolve, MIN_SPLASH_MS - elapsed));

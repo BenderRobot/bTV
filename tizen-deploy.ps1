@@ -110,13 +110,13 @@ function Auto-PushGit {
 
         Write-Host "Push vers GitHub..." -ForegroundColor Cyan
         $currentBranch = (git rev-parse --abbrev-ref HEAD).Trim()
-        $hasUpstream = git rev-parse --abbrev-ref --symbolic-full-name "@{u}" 2>$null
-        if ($LASTEXITCODE -ne 0 -or -not $hasUpstream) {
+        git push 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "Pas d'upstream configure pour '$currentBranch', creation avec --set-upstream..." -ForegroundColor Yellow
             git push -u origin $currentBranch
-        } else {
-            git push
+            if ($LASTEXITCODE -ne 0) { throw "git push a echoue (code $LASTEXITCODE)" }
         }
-        
+
         Write-Host "Push GitHub effectue avec succes !" -ForegroundColor Green
     }
     catch {

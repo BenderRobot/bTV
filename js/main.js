@@ -655,7 +655,13 @@ async function fetchCategoryItems(sectionKey, catId, signal) {
     const startedAt = performance.now();
     debugLog(`→ Requête catégorie id=${catId} (${sectionKey})`);
     try {
-        const items = await fetchJson(url, 2, signal);
+        // 3 nouvelles tentatives (1s/2s/3s de delai) au lieu de 2 : observe en
+        // conditions reelles un echec par reponse JSON tronquee ("Unexpected
+        // end of JSON input", cf. journal de debug) qui se resolvait tout
+        // seul quelques instants plus tard — la fenetre precedente (~3s au
+        // total) etait trop courte pour laisser passer ce type de creux
+        // reseau/serveur transitoire.
+        const items = await fetchJson(url, 3, signal);
         const ms = Math.round(performance.now() - startedAt);
         if (!Array.isArray(items)) {
             // Le panel repond parfois par un objet d'erreur (session expiree,
@@ -695,7 +701,7 @@ async function fetchAllItems(sectionKey) {
     const action = sectionConfig[sectionKey].streamAction;
     const url = `${serverUrl}/player_api.php?username=${username}&password=${password}&action=${action}`;
     try {
-        const items = await fetchJson(url, 2);
+        const items = await fetchJson(url, 3); // cf. fetchCategoryItems : reponses JSON tronquees observees en conditions reelles
         if (!Array.isArray(items)) {
             console.error('Reponse inattendue (catalogue complet):', items);
             flashAppToast('Réponse inattendue du serveur pour ce catalogue');
@@ -1024,6 +1030,37 @@ function saveProgress(sectionKey, item, position, duration) {
         map[item.url] = { ...item, position, duration, done: false, updatedAt: Date.now() };
     }
     saveProgressMap(sectionKey, map);
+}
+
+// ---------------------------------------------------------------
+// Preference de piste audio/sous-titres par contenu (survit a un
+// redemarrage de l'app, contrairement a preferredAudioLabel/
+// preferredSubtitleLabel qui ne font que suivre d'un episode a l'autre
+// PENDANT la meme session, cf. applyPreferredAudioTrack). Stockage separe
+// de la progression (et non fusionne dedans) car un choix de piste doit
+// rester memorise meme si la lecture est trop courte pour justifier une
+// reprise (< PROGRESS_MIN_SECONDS, ce qui supprime l'entree de progression).
+// ---------------------------------------------------------------
+const TRACK_PREF_KEY_PREFIX = 'iptv_trackpref_';
+
+function getTrackPrefMap(sectionKey) {
+    try { return JSON.parse(localStorage.getItem(TRACK_PREF_KEY_PREFIX + sectionKey)) || {}; } catch (e) { return {}; }
+}
+
+function saveTrackPrefMap(sectionKey, map) {
+    try { localStorage.setItem(TRACK_PREF_KEY_PREFIX + sectionKey, JSON.stringify(map)); } catch (e) {}
+}
+
+function getTrackPref(sectionKey, item) {
+    if (!item || !item.url) return null;
+    return getTrackPrefMap(sectionKey)[item.url] || null;
+}
+
+function saveTrackPref(sectionKey, item, audioLabel, subtitleLabel) {
+    if (!sectionKey || !item || !item.url) return;
+    const map = getTrackPrefMap(sectionKey);
+    map[item.url] = { audioLabel: audioLabel || null, subtitleLabel: (subtitleLabel === undefined ? null : subtitleLabel), updatedAt: Date.now() };
+    saveTrackPrefMap(sectionKey, map);
 }
 
 function clearProgress(sectionKey, item) {
@@ -2674,6 +2711,18 @@ function playStream(url, name, categoryLabel, logo, resumeAt) {
     disarmPauseWatchdog();
     resetPlaybackRetryBudget();
 
+    // Retrouve la piste audio/sous-titres choisie manuellement la derniere
+    // fois que CE contenu precis a ete lu (cf. saveTrackPref), y compris
+    // apres avoir quitte et relance l'app. A defaut d'un choix specifique a
+    // ce contenu, on garde le comportement existant (preferredAudioLabel/
+    // preferredSubtitleLabel deja en memoire, reporte d'un episode a l'autre
+    // pendant la session en cours).
+    const savedTrackPref = getTrackPref(currentPlaySection, currentPlayItem);
+    if (savedTrackPref) {
+        if (savedTrackPref.audioLabel) preferredAudioLabel = savedTrackPref.audioLabel;
+        if (savedTrackPref.subtitleLabel !== null && savedTrackPref.subtitleLabel !== undefined) preferredSubtitleLabel = savedTrackPref.subtitleLabel;
+    }
+
     playerErrorBox.style.display = 'none';
     closeEpisodeList();
     osdZone = 'buttons';
@@ -3139,6 +3188,10 @@ function confirmTrackMenuSelection() {
         selectSubtitleTrack(item.index);
         preferredSubtitleLabel = item.label;
     }
+    // Persiste immediatement (pas seulement en memoire) pour que ce choix
+    // soit retrouve meme apres avoir quitte l'app, la prochaine fois que ce
+    // contenu precis est repris (cf. getTrackPref dans playStream).
+    saveTrackPref(currentPlaySection, currentPlayItem, preferredAudioLabel, preferredSubtitleLabel);
     closeTrackMenu();
     showPlayerControls();
 }

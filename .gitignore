@@ -6,3 +6,9 @@
 
 # État local du script de déploiement (IP de la TV sur cette machine)
 .tizen-deploy-state.json
+
+# Brouillons d'assets non utilisés par l'app (aucune référence dans le code)
+images/grok-video-*.mp4
+images/ChatGPT Image*
+images/tizen_32.png
+images/tv.svg

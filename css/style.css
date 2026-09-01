@@ -399,3 +399,10 @@ body.theme-light .modal-btn.focused {
 /* ------------------------------------------------------------- */
 .perf-hud { display: none; position: fixed; top: 16px; right: 16px; background: rgba(0,0,0,0.78); color: #4cda3e; font-family: "Consolas", "Courier New", monospace; font-size: 15px; line-height: 1.7; padding: 12px 16px; border-radius: 10px; border: 1px solid rgba(76,218,62,0.4); z-index: 9999; pointer-events: none; white-space: nowrap; }
 .perf-hud.visible { display: block; }
+
+.debug-log-panel { display: none; position: fixed; bottom: 16px; left: 16px; width: 560px; max-height: 320px; overflow-y: auto; background: rgba(0,0,0,0.82); color: #eee; font-family: "Consolas", "Courier New", monospace; font-size: 13px; line-height: 1.5; padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.25); z-index: 9999; pointer-events: none; }
+.debug-log-panel.visible { display: block; }
+.debug-log-panel .debug-log-line { white-space: pre-wrap; word-break: break-word; border-bottom: 1px solid rgba(255,255,255,0.08); padding: 2px 0; }
+.debug-log-panel .debug-log-line.error { color: #ff6b6b; }
+.debug-log-panel .debug-log-line.warn { color: #ffcc4d; }
+.debug-log-panel .debug-log-line.ok { color: #6bdc7c; }

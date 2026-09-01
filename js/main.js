@@ -336,6 +336,53 @@ function updatePerfHudMemory() {
     if (saved) setPerfHudEnabled(true);
 })();
 
+// ---------------------------------------------------------------
+// Journal de debug a l'ecran (chantier chargement Direct)
+// ---------------------------------------------------------------
+// Chantier en cours : les chaines en bas de certaines categories Direct
+// echouent parfois au chargement quand on parcourt rapidement la sidebar.
+// Ce panneau affiche en direct, sur la TV elle-meme, le detail des requetes
+// de categories/EPG (debut, succes, erreur, annulation, duree) — impossible
+// a observer autrement sans brancher un PC/cable sur la TV.
+const DEBUG_LOG_KEY = 'iptv_debug_log';
+let debugLogEnabled = false;
+const debugLogEntries = [];
+const DEBUG_LOG_MAX_ENTRIES = 150;
+
+function toggleDebugLog() {
+    setDebugLogEnabled(!debugLogEnabled);
+}
+
+function setDebugLogEnabled(enabled) {
+    debugLogEnabled = enabled;
+    try { localStorage.setItem(DEBUG_LOG_KEY, enabled ? '1' : '0'); } catch (e) {}
+    document.getElementById('debug-log-panel').classList.toggle('visible', enabled);
+    const el = document.getElementById('settings-debug-state');
+    if (el) el.innerText = enabled ? 'Activé' : 'Désactivé';
+    if (enabled) debugLog('Journal de debug activé', 'ok');
+}
+
+// level : 'info' | 'ok' | 'warn' | 'error'
+function debugLog(message, level) {
+    const time = new Date().toLocaleTimeString('fr-FR', { hour12: false });
+    debugLogEntries.push({ time, message, level: level || 'info' });
+    if (debugLogEntries.length > DEBUG_LOG_MAX_ENTRIES) debugLogEntries.shift();
+    if (!debugLogEnabled) return;
+    const panel = document.getElementById('debug-log-panel');
+    const line = document.createElement('div');
+    line.className = `debug-log-line ${level || ''}`;
+    line.innerText = `[${time}] ${message}`;
+    panel.appendChild(line);
+    while (panel.children.length > DEBUG_LOG_MAX_ENTRIES) panel.removeChild(panel.firstChild);
+    panel.scrollTop = panel.scrollHeight;
+}
+
+(function initDebugLog() {
+    let saved = false;
+    try { saved = localStorage.getItem(DEBUG_LOG_KEY) === '1'; } catch (e) {}
+    if (saved) setDebugLogEnabled(true);
+})();
+
 function updateSettingsModalFocus() {
     document.querySelectorAll('#settings-modal .modal-btn').forEach((b, idx) => b.classList.toggle('focused', idx === settingsFocusIndex));
 }
@@ -429,6 +476,7 @@ function handleSettingsModalKey(keyCode) {
         else if (action === 'server') editServer();
         else if (action === 'theme') toggleAppTheme(); // reste ouvert, pratique pour comparer
         else if (action === 'perf') togglePerfHud(); // reste ouvert, pratique pour voir l'etat change
+        else if (action === 'debug') toggleDebugLog(); // reste ouvert, meme logique
         else closeSettingsModal();
     } else if (keyCode === 10009 || keyCode === 8) {
         closeSettingsModal();
@@ -572,20 +620,31 @@ function normalizeList(rawList, kind, sectionKey) {
 // avant d'abandonner et d'afficher une erreur, on retente quelques fois
 // avec un delai croissant — evite l'aller-retour manuel de l'utilisateur
 // pour qu'une categorie finisse par charger.
-async function fetchJson(url, retries) {
+async function fetchJson(url, retries, signal) {
     for (let attempt = 0; ; attempt++) {
         try {
-            const res = await fetch(url);
+            const res = await fetch(url, signal ? { signal } : undefined);
             return await res.json();
         } catch (e) {
+            // Une annulation volontaire (categorie quittee avant la fin de la
+            // requete, cf. selectCategory) n'est pas une panne reseau : on ne
+            // la retente pas, on la laisse simplement remonter telle quelle.
+            if (e.name === 'AbortError') throw e;
             if (attempt >= retries) throw e;
+            debugLog(`Nouvelle tentative (${attempt + 1}/${retries}) : ${url.split('&action=')[1] || url}`, 'warn');
             await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
         }
     }
 }
 
-// Recupere (et met en cache) les items d'une categorie, deja normalises
-async function fetchCategoryItems(sectionKey, catId) {
+// Recupere (et met en cache) les items d'une categorie, deja normalises.
+// signal : permet d'annuler la requete si l'utilisateur quitte deja cette
+// categorie (cf. selectCategory) avant la reponse du serveur — sans ça, une
+// rafale de survols rapides dans la sidebar empile des requetes completes
+// concurrentes qui finissent par saturer/faire timeout le panel, et c'est
+// alors la DERNIERE categorie sur laquelle l'utilisateur s'arrete qui
+// "prend l'erreur", meme si elle n'y est pour rien.
+async function fetchCategoryItems(sectionKey, catId, signal) {
     const cacheKey = `${sectionKey}_${catId}`;
     const kind = sectionKey === 'series' ? 'series' : 'stream';
     if (itemsCache[cacheKey]) return normalizeList(itemsCache[cacheKey], kind, sectionKey);
@@ -593,21 +652,32 @@ async function fetchCategoryItems(sectionKey, catId) {
     const { serverUrl, username, password } = window.iptvServerConfig;
     const action = sectionConfig[sectionKey].streamAction;
     const url = `${serverUrl}/player_api.php?username=${username}&password=${password}&action=${action}&category_id=${catId}`;
+    const startedAt = performance.now();
+    debugLog(`→ Requête catégorie id=${catId} (${sectionKey})`);
     try {
-        const items = await fetchJson(url, 2);
+        const items = await fetchJson(url, 2, signal);
+        const ms = Math.round(performance.now() - startedAt);
         if (!Array.isArray(items)) {
             // Le panel repond parfois par un objet d'erreur (session expiree,
             // trop de requetes recentes...) plutot qu'une liste : sans ce
             // controle, ça finissait silencieusement en "Aucun contenu."
             console.error('Reponse inattendue (categorie):', items);
+            debugLog(`✗ Réponse inattendue id=${catId} après ${ms}ms : ${JSON.stringify(items).slice(0, 120)}`, 'error');
             flashAppToast('Réponse inattendue du serveur pour cette catégorie');
             return [];
         }
+        debugLog(`✓ Catégorie id=${catId} chargée en ${ms}ms (${items.length} items)`, 'ok');
         cacheSet(itemsCache, cacheKey, items, 30);
         schedulePersistCaches();
         return normalizeList(items, kind, sectionKey);
     } catch (e) {
+        const ms = Math.round(performance.now() - startedAt);
+        if (e.name === 'AbortError') {
+            debugLog(`⨯ Catégorie id=${catId} annulée après ${ms}ms (catégorie quittée entre-temps)`, 'warn');
+            return null; // abandon volontaire : distinct d'une vraie erreur ([])
+        }
         console.error('Erreur chargement contenu:', e);
+        debugLog(`✗ Échec catégorie id=${catId} après ${ms}ms : ${e.message}`, 'error');
         flashAppToast('Erreur réseau lors du chargement de la catégorie');
         return [];
     }
@@ -996,6 +1066,9 @@ let railIsRecentList = false; // true pour "Recemment consultes" : affiche le bo
 const SIDEBAR_PREVIEW_CAP = 15;
 let railIsPreview = false;
 let railPreviewFullList = null;
+// Requete de contenu de categorie actuellement en vol (cf. selectCategory) :
+// permet de l'annuler si l'utilisateur change de categorie avant sa reponse.
+let categoryFetchAbortController = null;
 let favSubFocus = 'star'; // 'star' | 'remove' : sous-focus de la zone 'fav' (etoile vs suppression de l'historique)
 let synopsisToken = 0;
 let searchSubFocus = 'input'; // 'input' | 'clear' : sous-focus de la barre de recherche du contenu
@@ -1231,7 +1304,14 @@ async function selectCategory(idx, previewOnly) {
     } else {
         showRail([]);
         renderRailLoading();
-        const items = await fetchCategoryItems(browseSectionKey, cat.id);
+        // Une seule requete de contenu de categorie a la fois : si l'utilisateur
+        // a deja bouge (nouvel appel a selectCategory) avant que celle-ci
+        // n'aboutisse, on l'annule plutot que de laisser le serveur la finir
+        // pour rien (cf. fetchCategoryItems).
+        if (categoryFetchAbortController) categoryFetchAbortController.abort();
+        categoryFetchAbortController = new AbortController();
+        const items = await fetchCategoryItems(browseSectionKey, cat.id, categoryFetchAbortController.signal);
+        if (items === null) return; // requete annulee entre-temps
         if (browseCatIndex !== idx) return;
         if (previewOnly && items.length > SIDEBAR_PREVIEW_CAP) {
             railIsPreview = true;
@@ -1390,10 +1470,21 @@ let channelListEnrichToken = 0;
 function enrichChannelListWithEpg(list) {
     const myToken = ++channelListEnrichToken;
     const rows = document.querySelectorAll('.live-channel-row');
+    debugLog(`→ Enrichissement EPG démarré (${Math.min(list.length, CHANNEL_LIST_EAGER_EPG_LIMIT)}/${list.length} chaînes, limite=${CHANNEL_LIST_EAGER_EPG_LIMIT})`);
     let i = 0;
     function next() {
-        if (myToken !== channelListEnrichToken) return; // liste changee entre-temps (autre categorie/recherche)
-        if (i >= list.length || i >= CHANNEL_LIST_EAGER_EPG_LIMIT) return;
+        if (myToken !== channelListEnrichToken) {
+            debugLog(`⨯ Enrichissement EPG interrompu à la chaîne #${i} (catégorie/recherche changée)`, 'warn');
+            return;
+        }
+        if (i >= list.length) {
+            debugLog(`✓ Enrichissement EPG terminé (${i}/${list.length} chaînes)`, 'ok');
+            return;
+        }
+        if (i >= CHANNEL_LIST_EAGER_EPG_LIMIT) {
+            debugLog(`✓ Limite d'enrichissement EPG atteinte à la chaîne #${i}/${list.length} — le reste ne se charge qu'au survol`, 'warn');
+            return;
+        }
         const item = list[i];
         const row = rows[i];
         i++;
@@ -1402,7 +1493,10 @@ function enrichChannelListWithEpg(list) {
             if (myToken !== channelListEnrichToken) return;
             applyEpgToChannelRow(row, listings);
             setTimeout(next, 150);
-        }).catch(function () { setTimeout(next, 150); });
+        }).catch(function (e) {
+            debugLog(`✗ EPG chaîne "${item.name}" (id=${item.id}) : ${e && e.message}`, 'error');
+            setTimeout(next, 150);
+        });
     }
     next();
 }

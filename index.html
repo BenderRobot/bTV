@@ -191,6 +191,7 @@
                 <div class="modal-btn" id="settings-server-btn" data-action="server">Modifier le serveur</div>
                 <div class="modal-btn" id="settings-theme-btn" data-action="theme">Thème clair/sombre</div>
                 <div class="modal-btn" id="settings-perf-btn" data-action="perf">Performances à l'écran : <span id="settings-perf-state">Désactivées</span></div>
+                <div class="modal-btn" id="settings-debug-btn" data-action="debug">Journal de debug à l'écran : <span id="settings-debug-state">Désactivé</span></div>
                 <div class="modal-btn" id="settings-logout-btn" data-action="logout">Se déconnecter</div>
             </div>
         </div>
@@ -296,6 +297,12 @@
         <div>CPU : <span id="perf-cpu">--</span></div>
         <div>GPU : non exposé par la plateforme</div>
     </div>
+
+    <!-- Journal de debug : trace en direct les chargements de categories/EPG
+         (requetes, succes, erreurs, annulations) pour diagnostiquer les bugs
+         de chargement du Direct sans avoir besoin d'un cable/outils PC
+         branches sur la TV (cf. toggleDebugLog dans Parametres). -->
+    <div id="debug-log-panel" class="debug-log-panel"></div>
 
     <script src="js/main.js"></script>
 </body>

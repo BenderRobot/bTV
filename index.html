@@ -9,6 +9,15 @@
 </head>
 <body>
 
+    <!-- Racine de mise a l'echelle (Parametres > Taille du texte, cf.
+         applyTextSize dans app-shell.js) : canevas logique fixe 1920x1080,
+         redimensionne puis zoome pour toujours restituer exactement la
+         taille reelle de l'ecran, quel que soit le reglage. Contient les
+         vues et modales (qui doivent grossir/retrecir avec le reste) ; le
+         toast, le mini-lecteur et les HUD de diagnostic restent EN DEHORS
+         (taille reelle fixe, jamais affectes). -->
+    <div id="app-scale-root">
+
     <!-- 1. VUE LOGIN -->
     <div id="login-view" class="view active">
         <div class="login-box">
@@ -218,24 +227,23 @@
             <div class="settings-hint">Haut/Bas : naviguer · Gauche/Droite : changer de section ou de valeur · OK : valider · Retour : fermer</div>
             <div class="settings-layout">
                 <div class="settings-sidebar" id="settings-sidebar">
-                    <div class="settings-nav-item focused" data-panel="general">Général</div>
+                    <div class="settings-nav-item focused" data-panel="server">Serveur</div>
+                    <div class="settings-nav-item" data-action="theme">Thème</div>
                     <div class="settings-nav-item" data-panel="subtitles">Sous-titres</div>
                     <div class="settings-nav-item" data-panel="categories">Catégories masquées</div>
                     <div class="settings-nav-item" data-panel="textsize">Taille du texte</div>
+                    <div class="settings-nav-item" data-panel="admin">Admin</div>
+                    <div class="settings-nav-item" data-action="logout">Se déconnecter</div>
                 </div>
                 <div class="settings-content">
-                    <!-- Général -->
-                    <div class="settings-panel active" id="settings-panel-general" data-panel="general">
+                    <!-- Serveur -->
+                    <div class="settings-panel active" id="settings-panel-server" data-panel="server">
                         <div class="settings-info">
                             <div class="modal-row"><strong>Serveur :</strong> <span id="settings-server-url"></span></div>
                             <div class="modal-row"><strong>Adresse MAC :</strong> <span id="settings-mac"></span></div>
                             <div class="modal-row"><strong>Mémoire utilisée par l'app :</strong> <span id="settings-memory"></span></div>
                         </div>
                         <div class="settings-focusable modal-btn" data-action="server">Modifier le serveur</div>
-                        <div class="settings-focusable modal-btn" data-action="theme">Thème clair/sombre</div>
-                        <div class="settings-focusable modal-btn" data-action="perf">Performances à l'écran : <span id="settings-perf-state">Désactivées</span></div>
-                        <div class="settings-focusable modal-btn" data-action="debug">Journal de debug à l'écran : <span id="settings-debug-state">Désactivé</span></div>
-                        <div class="settings-focusable modal-btn" data-action="logout">Se déconnecter</div>
                     </div>
 
                     <!-- Sous-titres -->
@@ -269,6 +277,12 @@
                         </div>
                         <div class="modal-row" style="color: var(--text-muted); font-size: 14px;">S'applique à toute l'interface (hors lecteur vidéo).</div>
                     </div>
+
+                    <!-- Admin -->
+                    <div class="settings-panel" id="settings-panel-admin" data-panel="admin" hidden>
+                        <div class="settings-focusable modal-btn" data-action="perf">Performances à l'écran : <span id="settings-perf-state">Désactivées</span></div>
+                        <div class="settings-focusable modal-btn" data-action="debug">Journal de debug à l'écran : <span id="settings-debug-state">Désactivé</span></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -287,8 +301,6 @@
             </div>
         </div>
     </div>
-
-    <div id="app-toast" class="app-toast"></div>
 
     <!-- 4. VUE LECTEUR VIDEO -->
     <div id="player-view" class="view" style="position: relative;">
@@ -368,6 +380,10 @@
             <div class="osd-episode-list" id="osd-episode-list"></div>
         </div>
     </div>
+
+    </div> <!-- /#app-scale-root -->
+
+    <div id="app-toast" class="app-toast"></div>
 
     <!-- Mini-lecteur (PiP maison) : accueille temporairement #video-player ou
          #av-player+sous-titres quand la lecture est reduite (cf.

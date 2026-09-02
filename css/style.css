@@ -27,10 +27,20 @@
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-body { background-color: var(--bg-black); color: var(--text-primary); width: 1920px; height: 1080px; overflow: hidden; }
+body { background-color: var(--bg-black); color: var(--text-primary); width: 100vw; height: 100vh; overflow: hidden; }
+/* Canevas logique fixe (1920x1080) portant toutes les vues/modales : la
+   taille reelle vient desormais de body (100vw/100vh) — cf. applyTextSize
+   dans app-shell.js, qui redimensionne CET element (pas body) pour que le
+   reglage "Taille du texte" grossisse/retrecisse la mise en page interne
+   sans jamais deborder de l'ecran reel. */
+#app-scale-root { position: relative; width: 1920px; height: 1080px; overflow: hidden; }
 
 /* Vues */
-.view { display: none; width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; }
+/* width/height en % (pas vw/vh) : doit remplir #app-scale-root, dont la
+   taille EST le canevas logique (redimensionne par applyTextSize), pas
+   forcement la taille reelle de l'ecran — vw/vh ignoreraient ce
+   redimensionnement et casseraient la compensation de zoom. */
+.view { display: none; width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
 .view.active { display: flex; }
 
 /* Login */
@@ -299,7 +309,10 @@ body { background-color: var(--bg-black); color: var(--text-primary); width: 192
 /* Modale Parametres v2 : sidebar de sections + panneau de contenu
    (cf. js/modals.js pour la navigation). */
 /* ------------------------------------------------------------- */
-.settings-modal-box { width: 980px; max-height: 760px; display: flex; flex-direction: column; }
+/* height (pas max-height) : la modale garde une taille fixe quel que soit
+   le panneau affiche, au lieu de se redimensionner a chaque changement de
+   section — .settings-content scrolle en interne si un panneau deborde. */
+.settings-modal-box { width: 980px; height: 700px; display: flex; flex-direction: column; }
 .settings-hint { color: var(--text-faint); font-size: 13px; margin-top: -14px; margin-bottom: 20px; }
 .settings-layout { display: flex; gap: 28px; flex: 1; min-height: 0; }
 .settings-sidebar { width: 250px; flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; padding-right: 28px; border-right: 1px solid var(--border-subtle); }
@@ -332,6 +345,12 @@ video { width: 100%; height: 100%; object-fit: contain; }
 /* AVPlay ne rend pas les sous-titres lui-meme (contrairement a <video>) :
    onsubtitlechange nous fournit le texte, affiche ici manuellement. */
 .avplay-subtitle-overlay { position: absolute; left: 0; right: 0; bottom: 110px; text-align: center; color: #fff; font-size: 26px; font-weight: 600; text-shadow: 0 2px 6px rgba(0,0,0,0.9), 0 0 2px rgba(0,0,0,0.9); pointer-events: none; padding: 0 60px; white-space: pre-line; z-index: 5; }
+/* Le conteneur reste pleine largeur (necessaire pour centrer le texte quelle
+   que soit sa longueur), mais le fond/la police (Parametres > Sous-titres,
+   cf. applySubtitleStylePrefs) s'appliquent ici, sur le texte lui-meme —
+   sinon la "bande" derriere le sous-titre s'etend sur toute la largeur de
+   l'ecran au lieu de ne suivre que le texte. */
+.avplay-subtitle-overlay .subtitle-chip { display: inline-block; padding: 4px 16px; border-radius: 4px; font-family: var(--subtitle-font, inherit); color: var(--subtitle-color, #fff); background: var(--subtitle-bg, rgba(0,0,0,0.6)); }
 
 /* Indicateur de chargement/mise en tampon du lecteur : evite de confondre
    une simple latence reseau avec une erreur de lecture. */

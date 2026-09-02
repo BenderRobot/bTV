@@ -31,15 +31,27 @@ function handleAccountModalKey(keyCode) {
 }
 
 // ---------------------------------------------------------------
-// Modale Parametres : sidebar de sections (General/Sous-titres/Categories
-// masquees/Taille du texte) + panneau de contenu. Deux zones de focus,
-// comme le modele deja utilise pour la navigation Films/Series/Direct
-// (sidebar/rail) : settingsZone 'nav' (sidebar) ou 'content' (panneau
+// Modale Parametres : sidebar de sections + panneau de contenu. Deux zones
+// de focus, comme le modele deja utilise pour la navigation Films/Series/
+// Direct (sidebar/rail) : settingsZone 'nav' (sidebar) ou 'content' (panneau
 // actif). Gauche/Droite passent d'une zone a l'autre ET, sur une ligne a
 // valeur cyclique (data-cycle), changent directement sa valeur.
+//
+// Deux types d'entrees de sidebar : 'panel' (a un panneau de contenu dans
+// lequel on entre, cf. settingsZone) et 'action' (declenchee directement
+// depuis la sidebar sans panneau, ex. Theme/Deconnexion — pas de reglage
+// a afficher pour une simple bascule/action immediate).
 // ---------------------------------------------------------------
 let settingsModalOpen = false;
-const SETTINGS_PANELS = ['general', 'subtitles', 'categories', 'textsize'];
+const SETTINGS_SIDEBAR_ITEMS = [
+    { type: 'panel', panel: 'server' },
+    { type: 'action', action: 'theme' },
+    { type: 'panel', panel: 'subtitles' },
+    { type: 'panel', panel: 'categories' },
+    { type: 'panel', panel: 'textsize' },
+    { type: 'panel', panel: 'admin' },
+    { type: 'action', action: 'logout' }
+];
 let settingsZone = 'nav'; // 'nav' | 'content'
 let settingsNavIndex = 0;
 let settingsContentIndex = 0;
@@ -65,7 +77,7 @@ function openSettingsModal() {
     renderSubtitlePrefsPanel();
     renderTextSizePanel();
     renderHiddenCategoriesPanel();
-    showSettingsPanel(SETTINGS_PANELS[settingsNavIndex]);
+    showSettingsPanel(SETTINGS_SIDEBAR_ITEMS[settingsNavIndex].panel);
     updateSettingsNavFocus();
     updateSettingsContentFocus();
     document.getElementById('settings-modal').classList.add('visible');
@@ -73,9 +85,10 @@ function openSettingsModal() {
 
 function showSettingsPanel(panelKey) {
     // .active marque la section courante en permanence (meme une fois le
-    // focus passe dans le panneau, cf. settingsZone) ; .focused (cf.
-    // updateSettingsNavFocus) ne s'applique lui que zone 'nav' active,
-    // sinon la sidebar semblerait "perdre" sa selection en changeant de zone.
+    // focus passe dans le panneau, ou en survolant une entree 'action' de la
+    // sidebar) ; .focused (cf. updateSettingsNavFocus) ne s'applique lui que
+    // zone 'nav' active, sinon la sidebar semblerait "perdre" sa selection
+    // en changeant de zone.
     document.querySelectorAll('.settings-nav-item').forEach(el => el.classList.toggle('active', el.dataset.panel === panelKey));
     document.querySelectorAll('.settings-panel').forEach(el => el.classList.toggle('active', el.dataset.panel === panelKey));
 }
@@ -87,8 +100,9 @@ function updateSettingsNavFocus() {
 }
 
 function getSettingsPanelFocusables() {
-    const panelKey = SETTINGS_PANELS[settingsNavIndex];
-    return Array.from(document.querySelectorAll(`#settings-panel-${panelKey} .settings-focusable`));
+    const item = SETTINGS_SIDEBAR_ITEMS[settingsNavIndex];
+    if (!item || item.type !== 'panel') return [];
+    return Array.from(document.querySelectorAll(`#settings-panel-${item.panel} .settings-focusable`));
 }
 
 function updateSettingsContentFocus() {
@@ -100,11 +114,36 @@ function updateSettingsContentFocus() {
     });
 }
 
-function switchSettingsPanel() {
-    settingsContentIndex = 0;
-    showSettingsPanel(SETTINGS_PANELS[settingsNavIndex]);
+// Deplacement Haut/Bas dans la sidebar : change de panneau affiche pour une
+// entree 'panel', ne fait rien de plus pour une entree 'action' (le panneau
+// affiche reste celui visite le plus recemment).
+function onSettingsNavMove() {
+    const item = SETTINGS_SIDEBAR_ITEMS[settingsNavIndex];
+    if (item.type === 'panel') {
+        settingsContentIndex = 0;
+        showSettingsPanel(item.panel);
+    }
     updateSettingsNavFocus();
     updateSettingsContentFocus();
+}
+
+// OK/Droite sur la sidebar : entre dans le panneau pour une entree 'panel',
+// declenche l'action immediatement pour une entree 'action'.
+function enterSettingsNavItem() {
+    const item = SETTINGS_SIDEBAR_ITEMS[settingsNavIndex];
+    if (item.type === 'action') {
+        runSettingsAction(item.action);
+        return;
+    }
+    settingsZone = 'content';
+    settingsContentIndex = 0;
+    updateSettingsNavFocus();
+    updateSettingsContentFocus();
+}
+
+function runSettingsAction(action) {
+    if (action === 'theme') toggleAppTheme(); // reste ouvert, pratique pour comparer
+    else if (action === 'logout') logout();
 }
 
 function activateSettingsFocusable(el) {
@@ -118,9 +157,7 @@ function activateSettingsFocusable(el) {
         return;
     }
     const action = el.getAttribute('data-action');
-    if (action === 'logout') logout();
-    else if (action === 'server') editServer();
-    else if (action === 'theme') toggleAppTheme(); // reste ouvert, pratique pour comparer
+    if (action === 'server') editServer();
     else if (action === 'perf') togglePerfHud();
     else if (action === 'debug') toggleDebugLog();
 }
@@ -219,7 +256,8 @@ async function renderHiddenCategoriesPanel() {
         listEl.appendChild(row);
     });
     // La nouvelle liste peut etre plus courte que l'ancienne selection.
-    if (settingsZone === 'content' && SETTINGS_PANELS[settingsNavIndex] === 'categories') {
+    const currentItem = SETTINGS_SIDEBAR_ITEMS[settingsNavIndex];
+    if (settingsZone === 'content' && currentItem && currentItem.panel === 'categories') {
         const focusables = getSettingsPanelFocusables();
         settingsContentIndex = Math.min(settingsContentIndex, Math.max(0, focusables.length - 1));
         updateSettingsContentFocus();
@@ -591,14 +629,14 @@ function handleExitAppDialogKey(keyCode) {
 function handleSettingsModalKey(keyCode) {
     if (keyCode === 38) { // Haut
         if (settingsZone === 'nav') {
-            if (settingsNavIndex > 0) { settingsNavIndex--; switchSettingsPanel(); }
+            if (settingsNavIndex > 0) { settingsNavIndex--; onSettingsNavMove(); }
         } else if (settingsContentIndex > 0) {
             settingsContentIndex--;
             updateSettingsContentFocus();
         }
     } else if (keyCode === 40) { // Bas
         if (settingsZone === 'nav') {
-            if (settingsNavIndex < SETTINGS_PANELS.length - 1) { settingsNavIndex++; switchSettingsPanel(); }
+            if (settingsNavIndex < SETTINGS_SIDEBAR_ITEMS.length - 1) { settingsNavIndex++; onSettingsNavMove(); }
         } else {
             const focusables = getSettingsPanelFocusables();
             if (settingsContentIndex < focusables.length - 1) { settingsContentIndex++; updateSettingsContentFocus(); }
@@ -614,22 +652,16 @@ function handleSettingsModalKey(keyCode) {
                 updateSettingsContentFocus();
             }
         }
-    } else if (keyCode === 39) { // Droite : entre dans le panneau, ou valeur suivante sur une ligne cyclique
+    } else if (keyCode === 39) { // Droite : entre dans le panneau (ou declenche l'action), ou valeur suivante sur une ligne cyclique
         if (settingsZone === 'nav') {
-            settingsZone = 'content';
-            settingsContentIndex = 0;
-            updateSettingsNavFocus();
-            updateSettingsContentFocus();
+            enterSettingsNavItem();
         } else {
             const el = getSettingsPanelFocusables()[settingsContentIndex];
             if (el && el.dataset.cycle) cycleSettingsValue(el.dataset.cycle, 1);
         }
     } else if (keyCode === 13) { // OK
         if (settingsZone === 'nav') {
-            settingsZone = 'content';
-            settingsContentIndex = 0;
-            updateSettingsNavFocus();
-            updateSettingsContentFocus();
+            enterSettingsNavItem();
         } else {
             activateSettingsFocusable(getSettingsPanelFocusables()[settingsContentIndex]);
         }

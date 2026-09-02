@@ -25,10 +25,16 @@ function applySubtitleStylePrefs() {
     const color = (SUBTITLE_COLOR_OPTIONS[prefs.colorIndex] || SUBTITLE_COLOR_OPTIONS[0]).value;
     const bg = (SUBTITLE_BG_OPTIONS[prefs.bgIndex] || SUBTITLE_BG_OPTIONS[0]).value;
 
+    // #avplay-subtitle-overlay reste pleine largeur (necessaire pour centrer
+    // le texte quelle que soit sa longueur), mais le style s'applique via
+    // variables CSS a .subtitle-chip — un <span> cree a chaque ligne (cf.
+    // onsubtitlechange) qui, lui, ne prend que la largeur du texte : la
+    // bande pleine largeur venait de styler directement le conteneur
+    // plutot que le texte.
     const overlay = document.getElementById('avplay-subtitle-overlay');
-    overlay.style.fontFamily = font;
-    overlay.style.color = color;
-    overlay.style.background = bg;
+    overlay.style.setProperty('--subtitle-font', font);
+    overlay.style.setProperty('--subtitle-color', color);
+    overlay.style.setProperty('--subtitle-bg', bg);
 
     let styleEl = document.getElementById('subtitle-cue-style');
     if (!styleEl) {
@@ -40,6 +46,14 @@ function applySubtitleStylePrefs() {
 }
 
 applySubtitleStylePrefs();
+
+// Certains panels renvoient un saut de ligne comme balise litterale "<br>"
+// plutot qu'un vrai retour a la ligne (affichee telle quelle a l'ecran sans
+// traitement, cf. retour utilisateur) : on echappe tout le texte (donnee
+// externe, pas de confiance) PUIS on ne re-autorise que ce tag precis.
+function formatSubtitleText(raw) {
+    return escapeHtml(raw || '').replace(/&lt;br\s*\/?&gt;/gi, '<br>');
+}
 
 // Etat de l'OSD du lecteur video. Gauche/Droite avance/recule directement
 // dans la video par defaut (osdZone 'seek') ; Haut deploie la rangee de
@@ -377,7 +391,8 @@ function startAvplayPlayback(url, resumeAt, keepPaused) {
             },
             onevent: function () {},
             onsubtitlechange: function (duration, text) {
-                document.getElementById('avplay-subtitle-overlay').innerText = text || '';
+                const overlay = document.getElementById('avplay-subtitle-overlay');
+                overlay.innerHTML = text ? `<span class="subtitle-chip">${formatSubtitleText(text)}</span>` : '';
             },
             ondrmevent: function () {}
         });

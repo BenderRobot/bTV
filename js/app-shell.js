@@ -144,16 +144,25 @@ function saveTextSizeIndex(idx) {
 
 function applyTextSize(idx) {
     const option = TEXT_SIZE_OPTIONS[idx] || TEXT_SIZE_OPTIONS[1];
-    document.body.style.zoom = option.zoom;
-    // Contre-zoom sur le lecteur (vue plein ecran + mini-lecteur, cf.
-    // player.js) : "hors lecteur video" doit rester vrai, sinon la video et
-    // son OSD (dimensionnes en vw/vh/100%) deborderaient de l'ecran reel a
-    // un zoom different de 1.
-    const inverse = 1 / option.zoom;
+    // #app-scale-root est un canevas fixe 1920x1080 (cf. css/style.css) :
+    // zoomer sans compenser sa taille de base ferait deborder de l'ecran
+    // reel (zoom > 1) ou laisser des marges (zoom < 1). On recalcule donc sa
+    // taille pour qu'une fois le zoom applique, le rendu fasse TOUJOURS
+    // exactement 1920x1080 — seule la mise en page interne (vues, modales,
+    // tout en px fixes) devient proportionnellement plus grande ou petite.
+    const root = document.getElementById('app-scale-root');
+    if (root) {
+        root.style.width = (1920 / option.zoom) + 'px';
+        root.style.height = (1080 / option.zoom) + 'px';
+        root.style.zoom = option.zoom;
+    }
+    // Contre-zoom sur le lecteur plein ecran : "hors lecteur video" doit
+    // rester vrai, sinon la video/OSD (dimensionnes en vw/vh/100%) serait
+    // affectee par le zoom du canevas qui la contient. Le mini-lecteur, lui,
+    // est hors de #app-scale-root (cf. index.html) : deja intact, pas de
+    // contre-zoom a lui appliquer.
     const playerViewEl = document.getElementById('player-view');
-    if (playerViewEl) playerViewEl.style.zoom = inverse;
-    const miniPlayerEl = document.getElementById('mini-player');
-    if (miniPlayerEl) miniPlayerEl.style.zoom = inverse;
+    if (playerViewEl) playerViewEl.style.zoom = 1 / option.zoom;
 }
 
 applyTextSize(getTextSizeIndex());

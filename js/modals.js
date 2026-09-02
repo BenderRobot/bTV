@@ -191,6 +191,10 @@ function cycleSettingsValue(cycleKey, direction) {
         saveTextSizeIndex(idx);
         applyTextSize(idx);
         renderTextSizePanel();
+        // Les sous-titres compensent le contre-zoom du lecteur avec ce meme
+        // reglage (cf. applySubtitleStylePrefs) : a reappliquer si jamais
+        // un mini-lecteur tourne en arriere-plan pendant ce changement.
+        applySubtitleStylePrefs();
     }
 }
 

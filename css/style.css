@@ -350,7 +350,7 @@ video { width: 100%; height: 100%; object-fit: contain; }
    cf. applySubtitleStylePrefs) s'appliquent ici, sur le texte lui-meme —
    sinon la "bande" derriere le sous-titre s'etend sur toute la largeur de
    l'ecran au lieu de ne suivre que le texte. */
-.avplay-subtitle-overlay .subtitle-chip { display: inline-block; padding: 4px 16px; border-radius: 4px; font-family: var(--subtitle-font, inherit); color: var(--subtitle-color, #fff); background: var(--subtitle-bg, rgba(0,0,0,0.6)); }
+.avplay-subtitle-overlay .subtitle-chip { display: inline-block; padding: 4px 16px; border-radius: 4px; font-family: var(--subtitle-font, inherit); color: var(--subtitle-color, #fff); background: var(--subtitle-bg, rgba(0,0,0,0.6)); font-size: var(--subtitle-size, 26px); }
 
 /* Indicateur de chargement/mise en tampon du lecteur : evite de confondre
    une simple latence reseau avec une erreur de lecture. */

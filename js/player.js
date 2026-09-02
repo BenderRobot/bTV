@@ -19,11 +19,22 @@ let hlsInstance = null;
 // standard pour ça — impossible a cibler via .style sur <video> lui-meme,
 // on injecte/actualise donc une regle dediee dans un <style> a part.
 // ---------------------------------------------------------------
+const SUBTITLE_BASE_FONT_SIZE = 26;
+
 function applySubtitleStylePrefs() {
     const prefs = getSubtitlePrefs();
     const font = SUBTITLE_FONT_OPTIONS[prefs.fontIndex] || SUBTITLE_FONT_OPTIONS[0];
     const color = (SUBTITLE_COLOR_OPTIONS[prefs.colorIndex] || SUBTITLE_COLOR_OPTIONS[0]).value;
     const bg = (SUBTITLE_BG_OPTIONS[prefs.bgIndex] || SUBTITLE_BG_OPTIONS[0]).value;
+    // #player-view est delibirement exclu du zoom "Taille du texte" (cf.
+    // applyTextSize dans app-shell.js) pour ne jamais deformer la video —
+    // ce qui annule aussi, par ricochet, cet effet sur les sous-titres
+    // (le contre-zoom du lecteur les neutralise). On applique donc ici le
+    // meme facteur directement en pixels, pour que "Taille du texte"
+    // affecte quand meme la lisibilite des sous-titres sans toucher a la
+    // taille de la video elle-meme.
+    const textSizeZoom = (TEXT_SIZE_OPTIONS[getTextSizeIndex()] || TEXT_SIZE_OPTIONS[1]).zoom;
+    const fontSize = Math.round(SUBTITLE_BASE_FONT_SIZE * textSizeZoom);
 
     // #avplay-subtitle-overlay reste pleine largeur (necessaire pour centrer
     // le texte quelle que soit sa longueur), mais le style s'applique via
@@ -35,6 +46,7 @@ function applySubtitleStylePrefs() {
     overlay.style.setProperty('--subtitle-font', font);
     overlay.style.setProperty('--subtitle-color', color);
     overlay.style.setProperty('--subtitle-bg', bg);
+    overlay.style.setProperty('--subtitle-size', fontSize + 'px');
 
     let styleEl = document.getElementById('subtitle-cue-style');
     if (!styleEl) {
@@ -42,17 +54,21 @@ function applySubtitleStylePrefs() {
         styleEl.id = 'subtitle-cue-style';
         document.head.appendChild(styleEl);
     }
-    styleEl.textContent = `video::cue { font-family: ${font}; color: ${color}; background: ${bg}; }`;
+    styleEl.textContent = `video::cue { font-family: ${font}; color: ${color}; background: ${bg}; font-size: ${fontSize}px; }`;
 }
 
 applySubtitleStylePrefs();
 
-// Certains panels renvoient un saut de ligne comme balise litterale "<br>"
-// plutot qu'un vrai retour a la ligne (affichee telle quelle a l'ecran sans
-// traitement, cf. retour utilisateur) : on echappe tout le texte (donnee
-// externe, pas de confiance) PUIS on ne re-autorise que ce tag precis.
+// Certains panels renvoient des sous-titres au format ASS/SSA (ou mal
+// convertis depuis ce format) : tags de mise en forme/positionnement entre
+// accolades ("{\an8}", "{\pos(400,300)}"...) qui n'ont aucun sens hors de ce
+// format et doivent etre retires plutot qu'affiches tels quels. Egalement,
+// un saut de ligne littéral "<br>" (au lieu d'un vrai retour à la ligne) :
+// on echappe tout le texte (donnee externe, pas de confiance) PUIS on ne
+// re-autorise que ce tag precis.
 function formatSubtitleText(raw) {
-    return escapeHtml(raw || '').replace(/&lt;br\s*\/?&gt;/gi, '<br>');
+    const withoutAssTags = (raw || '').replace(/\{\\[^}]*\}/g, '');
+    return escapeHtml(withoutAssTags).replace(/&lt;br\s*\/?&gt;/gi, '<br>');
 }
 
 // Etat de l'OSD du lecteur video. Gauche/Droite avance/recule directement

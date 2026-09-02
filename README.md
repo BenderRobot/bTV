@@ -45,10 +45,27 @@ Au premier lancement, renseigne l'URL du serveur, l'identifiant et le mot de pas
 ## Structure du projet
 
 ```
-config.xml         Manifeste de l'app Tizen (id, privilèges, profil TV)
-index.html         Vues de l'app (login, accueil, navigation, lecteur, modales)
-css/style.css       Styles
-js/main.js          Logique applicative (API Xtream, navigation, lecteur, caches)
-icon.png            Icône de l'app
-tizen-deploy.ps1    Script de build/installation/déploiement + push Git
+config.xml           Manifeste de l'app Tizen (id, privilèges, profil TV)
+index.html           Vues de l'app (login, accueil, navigation, lecteur, modales)
+css/style.css        Styles
+js/utils.js          Fonctions pures (formatage, cache, EPG...), testées unitairement
+js/app-shell.js      Navigation racine, toasts, thème, accueil
+js/modals.js         Modales Compte/Paramètres (HUD perf, journal de debug), reprise de lecture
+js/data.js           API Xtream, caches, favoris/historique, progression
+js/browse.js         Navigation Films/Séries/Direct/Rediffusion/Favoris
+js/input.js          Dispatch de la télécommande vers l'écran actif
+js/player.js         Lecture vidéo (<video>+hls.js, AVPlay), OSD, splash
+js/bootstrap.js      Authentification et auto-login au démarrage
+icon.png             Icône de l'app
+tizen-deploy.ps1     Script de build/installation/déploiement + push Git
+```
+
+Les fichiers `js/*.js` (hors `utils.js`) sont chargés en `<script>` classiques dans cet ordre précis et partagent une seule portée globale — pas de bundler, pas de module ES (cf. l'en-tête de `js/app-shell.js`).
+
+## Développement (tests / lint)
+
+```powershell
+npm install   # une seule fois
+npm test      # tests unitaires (js/utils.js), via node --test
+npm run lint  # ESLint
 ```

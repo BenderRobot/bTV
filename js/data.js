@@ -1,0 +1,515 @@
+// ---------------------------------------------------------------
+// data.js : config Xtream Codes, caches memoire/localStorage, appels API
+// (categories, contenus, EPG, series/VOD), favoris/recemment consultes,
+// progression de lecture, preferences de piste par contenu. Cf. app-shell.js
+// pour le principe general du decoupage en plusieurs fichiers.
+// ---------------------------------------------------------------
+
+// ---------------------------------------------------------------
+// Config Xtream Codes + caches
+// ---------------------------------------------------------------
+const sectionConfig = {
+    live: { catAction: 'get_live_categories', streamAction: 'get_live_streams', urlPart: 'live', defaultExt: 'ts' },
+    movies: { catAction: 'get_vod_categories', streamAction: 'get_vod_streams', urlPart: 'movie', defaultExt: 'mp4' },
+    series: { catAction: 'get_series_categories', streamAction: 'get_series', urlPart: 'series', defaultExt: 'mp4' }
+};
+const SECTION_LABELS = { live: 'En Direct', movies: 'Films', series: 'Séries', replay: 'Rediffusion', favorites: 'Favoris' };
+
+const categoriesCache = {};
+const itemsCache = {};
+const vodInfoCache = {};
+const seriesInfoCache = {};
+
+// cacheSet, formatTime, escapeHtml, decodeEpgText, resolveExtension et
+// buildTimeshiftUrl vivent desormais dans js/utils.js (charge avant ce
+// fichier dans index.html) : fonctions pures, testees unitairement sans TV
+// ni navigateur (cf. test/utils.test.js).
+
+// ---------------------------------------------------------------
+// Persistance des catalogues deja connus (categories, contenus de
+// categorie, saisons/episodes de series) dans localStorage : evite de tout
+// re-telecharger a chaque lancement de l'app pour des donnees qui changent
+// rarement d'un jour a l'autre. Scope par serveur+compte (cle dediee) pour
+// ne jamais melanger les catalogues de deux comptes differents.
+// ---------------------------------------------------------------
+const PERSISTENT_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h : au-dela, on prefere re-demander au panel
+let persistCachesTimer = null;
+
+function getPersistentCacheKey() {
+    const cfg = window.iptvServerConfig || {};
+    return `iptv_cache_${cfg.serverUrl || ''}_${cfg.username || ''}`;
+}
+
+function loadPersistentCaches() {
+    let stored;
+    try { stored = JSON.parse(localStorage.getItem(getPersistentCacheKey())); } catch (e) { stored = null; }
+    if (!stored || !stored.savedAt || (Date.now() - stored.savedAt) > PERSISTENT_CACHE_TTL_MS) return;
+    if (stored.categoriesCache) Object.assign(categoriesCache, stored.categoriesCache);
+    if (stored.itemsCache) Object.assign(itemsCache, stored.itemsCache);
+    if (stored.seriesInfoCache) Object.assign(seriesInfoCache, stored.seriesInfoCache);
+}
+
+// Regroupe les ecritures rapprochees (plusieurs categories/series consultees
+// a la suite) en une seule sauvegarde, pour ne pas re-serialiser tout le
+// cache a chaque contenu charge.
+function schedulePersistCaches() {
+    clearTimeout(persistCachesTimer);
+    persistCachesTimer = setTimeout(persistCachesNow, 2000);
+}
+
+function persistCachesNow() {
+    try {
+        // Les catalogues "__all__" ("Tout afficher") peuvent representer des
+        // milliers d'entrees a eux seuls : exclus pour rester sous la limite
+        // de stockage du navigateur (localStorage, quelques Mo maximum).
+        const itemsToPersist = {};
+        Object.keys(itemsCache).forEach(k => { if (!k.endsWith('__all')) itemsToPersist[k] = itemsCache[k]; });
+        localStorage.setItem(getPersistentCacheKey(), JSON.stringify({
+            savedAt: Date.now(),
+            categoriesCache,
+            itemsCache: itemsToPersist,
+            seriesInfoCache
+        }));
+    } catch (e) {
+        console.error('Erreur sauvegarde cache persistant (quota localStorage ?):', e);
+    }
+}
+
+// Normalise les objets bruts de l'API Xtream en un format d'affichage unique
+function normalizeList(rawList, kind, sectionKey) {
+    return rawList.map(raw => {
+        if (kind === 'series') {
+            // get_series renvoie deja plot/genre/rating/cast/director, pas besoin d'appel supplementaire
+            return {
+                kind: 'series', id: raw.series_id, name: raw.name, logo: raw.cover,
+                plot: raw.plot, genre: raw.genre, releaseDate: raw.releaseDate,
+                rating: raw.rating, rating5: raw.rating_5based, episodeRunTime: raw.episode_run_time,
+                cast: raw.cast, director: raw.director, added: raw.last_modified
+            };
+        }
+        // 'stream' : chaine live ou film
+        const { serverUrl, username, password, allowedFormats } = window.iptvServerConfig;
+        const cfg = sectionConfig[sectionKey];
+        const ext = resolveExtension(raw, cfg, allowedFormats);
+        const url = `${serverUrl}/${cfg.urlPart}/${username}/${password}/${raw.stream_id}.${ext}`;
+        return {
+            kind: 'stream', id: raw.stream_id, name: raw.name, logo: raw.stream_icon, url, rating: raw.rating, rating5: raw.rating_5based, added: raw.added,
+            // Rediffusion (catchup) : seules les chaines live avec tv_archive actif proposent un historique
+            archive: raw.tv_archive == 1, archiveDuration: parseInt(raw.tv_archive_duration, 10) || 0
+        };
+    });
+}
+
+// De nombreux panels IPTV bon marche repondent lentement/de façon flaky par
+// moments (timeout, connexion coupee) sans que ce soit une vraie panne :
+// avant d'abandonner et d'afficher une erreur, on retente quelques fois
+// avec un delai croissant — evite l'aller-retour manuel de l'utilisateur
+// pour qu'une categorie finisse par charger.
+async function fetchJson(url, retries, signal) {
+    for (let attempt = 0; ; attempt++) {
+        try {
+            const res = await fetch(url, signal ? { signal } : undefined);
+            return await res.json();
+        } catch (e) {
+            // Une annulation volontaire (categorie quittee avant la fin de la
+            // requete, cf. selectCategory) n'est pas une panne reseau : on ne
+            // la retente pas, on la laisse simplement remonter telle quelle.
+            if (e.name === 'AbortError') throw e;
+            if (attempt >= retries) throw e;
+            debugLog(`Nouvelle tentative (${attempt + 1}/${retries}) : ${url.split('&action=')[1] || url}`, 'warn');
+            await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+        }
+    }
+}
+
+// Recupere (et met en cache) les items d'une categorie, deja normalises.
+// signal : permet d'annuler la requete si l'utilisateur quitte deja cette
+// categorie (cf. selectCategory) avant la reponse du serveur — sans ça, une
+// rafale de survols rapides dans la sidebar empile des requetes completes
+// concurrentes qui finissent par saturer/faire timeout le panel, et c'est
+// alors la DERNIERE categorie sur laquelle l'utilisateur s'arrete qui
+// "prend l'erreur", meme si elle n'y est pour rien.
+async function fetchCategoryItems(sectionKey, catId, signal) {
+    const cacheKey = `${sectionKey}_${catId}`;
+    const kind = sectionKey === 'series' ? 'series' : 'stream';
+    if (itemsCache[cacheKey]) return normalizeList(itemsCache[cacheKey], kind, sectionKey);
+
+    const { serverUrl, username, password } = window.iptvServerConfig;
+    const action = sectionConfig[sectionKey].streamAction;
+    const url = `${serverUrl}/player_api.php?username=${username}&password=${password}&action=${action}&category_id=${catId}`;
+    const startedAt = performance.now();
+    debugLog(`→ Requête catégorie id=${catId} (${sectionKey})`);
+    try {
+        // 3 nouvelles tentatives (1s/2s/3s de delai) au lieu de 2 : observe en
+        // conditions reelles un echec par reponse JSON tronquee ("Unexpected
+        // end of JSON input", cf. journal de debug) qui se resolvait tout
+        // seul quelques instants plus tard — la fenetre precedente (~3s au
+        // total) etait trop courte pour laisser passer ce type de creux
+        // reseau/serveur transitoire.
+        const items = await fetchJson(url, 3, signal);
+        const ms = Math.round(performance.now() - startedAt);
+        if (!Array.isArray(items)) {
+            // Le panel repond parfois par un objet d'erreur (session expiree,
+            // trop de requetes recentes...) plutot qu'une liste : sans ce
+            // controle, ça finissait silencieusement en "Aucun contenu."
+            console.error('Reponse inattendue (categorie):', items);
+            debugLog(`✗ Réponse inattendue id=${catId} après ${ms}ms : ${JSON.stringify(items).slice(0, 120)}`, 'error');
+            flashAppToast('Réponse inattendue du serveur pour cette catégorie');
+            return [];
+        }
+        debugLog(`✓ Catégorie id=${catId} chargée en ${ms}ms (${items.length} items)`, 'ok');
+        cacheSet(itemsCache, cacheKey, items, 30);
+        schedulePersistCaches();
+        return normalizeList(items, kind, sectionKey);
+    } catch (e) {
+        const ms = Math.round(performance.now() - startedAt);
+        if (e.name === 'AbortError') {
+            debugLog(`⨯ Catégorie id=${catId} annulée après ${ms}ms (catégorie quittée entre-temps)`, 'warn');
+            return null; // abandon volontaire : distinct d'une vraie erreur ([])
+        }
+        console.error('Erreur chargement contenu:', e);
+        debugLog(`✗ Échec catégorie id=${catId} après ${ms}ms : ${e.message}`, 'error');
+        flashAppToast('Erreur réseau lors du chargement de la catégorie');
+        return [];
+    }
+}
+
+// Recupere l'integralite du catalogue d'une section (sans filtrer par
+// category_id). Sert d'echappatoire quand un contenu semble absent d'une
+// categorie precise (mal categorise cote panel) et de base a "Tout afficher".
+async function fetchAllItems(sectionKey) {
+    const cacheKey = `${sectionKey}__all`;
+    const kind = sectionKey === 'series' ? 'series' : 'stream';
+    if (itemsCache[cacheKey]) return normalizeList(itemsCache[cacheKey], kind, sectionKey);
+
+    const { serverUrl, username, password } = window.iptvServerConfig;
+    const action = sectionConfig[sectionKey].streamAction;
+    const url = `${serverUrl}/player_api.php?username=${username}&password=${password}&action=${action}`;
+    try {
+        const items = await fetchJson(url, 3); // cf. fetchCategoryItems : reponses JSON tronquees observees en conditions reelles
+        if (!Array.isArray(items)) {
+            console.error('Reponse inattendue (catalogue complet):', items);
+            flashAppToast('Réponse inattendue du serveur pour ce catalogue');
+            return [];
+        }
+        // "Tout afficher" peut representer des milliers d'entrees : cap plus
+        // bas (5) puisque chacune de ces entrees est deja tres volumineuse a
+        // elle seule (catalogue complet d'une section).
+        cacheSet(itemsCache, cacheKey, items, 5);
+        return normalizeList(items, kind, sectionKey);
+    } catch (e) {
+        console.error('Erreur chargement complet:', e);
+        flashAppToast('Erreur réseau lors du chargement du catalogue');
+        return [];
+    }
+}
+
+// Rediffusion (catchup) : recupere l'EPG passe d'une chaine et construit les
+// flux timeshift correspondants, dans la limite du nombre de jours
+// d'archivage autorise par l'abonnement (tv_archive_duration).
+async function fetchReplayPrograms(channel) {
+    const { serverUrl, username, password } = window.iptvServerConfig;
+    const url = `${serverUrl}/player_api.php?username=${username}&password=${password}&action=get_simple_data_table&stream_id=${channel.id}`;
+    let listings = [];
+    try {
+        const res = await fetch(url);
+        const data = await res.json();
+        listings = data.epg_listings || [];
+    } catch (e) {
+        console.error('Erreur EPG rediffusion:', e);
+        return [];
+    }
+
+    const now = Date.now();
+    const maxAgeMs = (channel.archiveDuration || 1) * 24 * 60 * 60 * 1000;
+
+    return listings
+        .map(ep => ({ ep, startTs: parseInt(ep.start_timestamp, 10) * 1000, stopTs: parseInt(ep.stop_timestamp, 10) * 1000 }))
+        // Seuls les programmes deja termines et encore dans la fenetre d'archivage sont rejouables.
+        .filter(({ startTs, stopTs }) => stopTs && stopTs < now && (now - startTs) <= maxAgeMs)
+        .sort((a, b) => b.startTs - a.startTs)
+        .slice(0, 60)
+        .map(({ ep, startTs, stopTs }) => {
+            const durationMin = Math.max(1, Math.round((stopTs - startTs) / 60000));
+            const dateLabel = new Date(startTs).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+            return {
+                kind: 'stream',
+                name: decodeEpgText(ep.title) || channel.name,
+                plot: decodeEpgText(ep.description),
+                logo: channel.logo,
+                badge: dateLabel,
+                url: buildTimeshiftUrl(channel.id, ep.start, durationMin, window.iptvServerConfig)
+            };
+        })
+        .filter(item => item.url);
+}
+
+// Recupere (et met en cache) le detail complet d'une serie : saisons + episodes
+async function loadSeriesInfo(seriesId) {
+    if (seriesInfoCache[seriesId]) return seriesInfoCache[seriesId];
+    const { serverUrl, username, password } = window.iptvServerConfig;
+    const url = `${serverUrl}/player_api.php?username=${username}&password=${password}&action=get_series_info&series_id=${seriesId}`;
+    try {
+        const res = await fetch(url);
+        const data = await res.json();
+        cacheSet(seriesInfoCache, seriesId, data, 100);
+        schedulePersistCaches();
+        return data;
+    } catch (e) {
+        console.error('Erreur get_series_info:', e);
+        return { episodes: {} };
+    }
+}
+
+async function loadVodInfo(item) {
+    if (vodInfoCache[item.id]) return vodInfoCache[item.id];
+    const { serverUrl, username, password } = window.iptvServerConfig;
+    const url = `${serverUrl}/player_api.php?username=${username}&password=${password}&action=get_vod_info&vod_id=${item.id}`;
+    try {
+        const res = await fetch(url);
+        const data = await res.json();
+        const info = data.info || {};
+        cacheSet(vodInfoCache, item.id, info, 300);
+        return info;
+    } catch (e) {
+        console.error('Erreur get_vod_info:', e);
+        return null;
+    }
+}
+
+// Mini-guide TV : programme(s) d'une chaine live. Ne recupere l'EPG que
+// pour la chaine survolee (comme loadVodInfo pour les films), jamais pour
+// tout un rail a la fois — evite le meme risque de gel que "Tout afficher"
+// en cas d'appels reseau en masse.
+const epgCache = {};
+async function loadLiveEpgListings(channel) {
+    if (epgCache[channel.id]) return epgCache[channel.id];
+    const { serverUrl, username, password } = window.iptvServerConfig;
+    const url = `${serverUrl}/player_api.php?username=${username}&password=${password}&action=get_short_epg&stream_id=${channel.id}&limit=8`;
+    try {
+        const res = await fetch(url);
+        const data = await res.json();
+        const listings = (data.epg_listings || []).map(ep => ({
+            title: decodeEpgText(ep.title),
+            start: ep.start,
+            end: ep.end,
+            startTs: parseInt(ep.start_timestamp, 10) * 1000,
+            stopTs: parseInt(ep.stop_timestamp, 10) * 1000
+        })).sort((a, b) => a.startTs - b.startTs);
+        cacheSet(epgCache, channel.id, listings, 400);
+        return listings;
+    } catch (e) {
+        console.error('Erreur get_short_epg:', e);
+        return [];
+    }
+}
+
+function getCurrentAndNextProgram(listings) {
+    const now = Date.now();
+    return {
+        current: listings.find(p => p.startTs <= now && p.stopTs > now) || null,
+        next: listings.find(p => p.startTs > now) || null
+    };
+}
+
+// Version courte (en cours / a suivre), utilisee dans le panneau synopsis
+// partage films/series/favoris (cf. updateSynopsisPanel).
+async function loadLiveEpg(channel) {
+    const listings = await loadLiveEpgListings(channel);
+    return getCurrentAndNextProgram(listings);
+}
+
+function formatEpgTimeRange(startStr, endStr) {
+    const s = (startStr || '').slice(11, 16);
+    const e = (endStr || '').slice(11, 16);
+    return s && e ? `${s}–${e}` : '';
+}
+
+function renderLiveEpgInfo(epg) {
+    if (!epg || (!epg.current && !epg.next)) {
+        document.getElementById('synopsis-text').innerText = 'Programme non disponible.';
+        return;
+    }
+    if (epg.current) {
+        document.getElementById('synopsis-meta').innerHTML =
+            `<span class="meta-imdb">EN COURS</span><span>${formatEpgTimeRange(epg.current.start, epg.current.end)}</span>`;
+    }
+    const lines = [];
+    if (epg.current) lines.push(escapeHtml(epg.current.title));
+    if (epg.next) lines.push(`À suivre (${formatEpgTimeRange(epg.next.start, epg.next.end)}) : ${escapeHtml(epg.next.title)}`);
+    // synopsis-text est un <p> : pas de <div> imbrique (invalide en HTML), un <br> suffit.
+    document.getElementById('synopsis-text').innerHTML = lines.join('<br>');
+}
+
+// "Ajoutés récemment" : agrege les items des N premieres categories deja
+// listees et trie par date d'ajout. Volontairement plafonne (12
+// categories) pour rester leger — pas d'appel API systematique sur tout
+// le catalogue.
+async function computeRecentlyAdded(sectionKey) {
+    const cats = categoriesCache[sectionKey] || [];
+    const capped = cats.slice(0, 12);
+    let all = [];
+    for (const cat of capped) {
+        const items = await fetchCategoryItems(sectionKey, cat.category_id);
+        all = all.concat(items);
+    }
+    all.sort((a, b) => (parseInt(b.added, 10) || 0) - (parseInt(a.added, 10) || 0));
+    const top = all.slice(0, 40);
+    top.forEach(it => { it.badge = 'NEW'; });
+    return top;
+}
+
+// ---------------------------------------------------------------
+// Favoris / Récemment consultés (par section, localStorage)
+// ---------------------------------------------------------------
+const FAV_KEY_PREFIX = 'iptv_favorites_';
+const RECENT_KEY_PREFIX = 'iptv_recent_';
+
+function getFavoritesList(sectionKey) {
+    try { return JSON.parse(localStorage.getItem(FAV_KEY_PREFIX + sectionKey)) || []; } catch (e) { return []; }
+}
+
+function isFavorite(sectionKey, item) {
+    const key = item.url || item.id;
+    return getFavoritesList(sectionKey).some(it => (it.url || it.id) === key);
+}
+
+function toggleFavorite(sectionKey, item) {
+    let list = getFavoritesList(sectionKey);
+    const key = item.url || item.id;
+    const idx = list.findIndex(it => (it.url || it.id) === key);
+    let added;
+    if (idx === -1) { list.unshift({ ...item }); added = true; }
+    else { list.splice(idx, 1); added = false; }
+    try { localStorage.setItem(FAV_KEY_PREFIX + sectionKey, JSON.stringify(list)); } catch (e) {}
+    return added;
+}
+
+function getRecentList(sectionKey) {
+    try { return JSON.parse(localStorage.getItem(RECENT_KEY_PREFIX + sectionKey)) || []; } catch (e) { return []; }
+}
+
+function trackRecent(sectionKey, item) {
+    if (!item) return;
+    const key = RECENT_KEY_PREFIX + sectionKey;
+    let list = getRecentList(sectionKey);
+    const itemKey = item.url || item.id;
+    list = list.filter(it => (it.url || it.id) !== itemKey);
+    list.unshift({ ...item });
+    list = list.slice(0, 30);
+    try { localStorage.setItem(key, JSON.stringify(list)); } catch (e) {}
+}
+
+// Retire une entree de l'historique "Recemment consultes". Pour une fiche
+// serie regroupee (cf. getGroupedRecentList), retire TOUS les episodes de
+// cette serie d'un coup (item._groupKey), pas seulement le representant affiche.
+function removeFromRecent(sectionKey, item) {
+    if (!item) return;
+    const key = RECENT_KEY_PREFIX + sectionKey;
+    let list = getRecentList(sectionKey);
+    if (item._groupKey) {
+        list = list.filter(it => it.seriesId !== item._groupKey);
+    } else {
+        const itemKey = item.url || item.id;
+        list = list.filter(it => (it.url || it.id) !== itemKey);
+    }
+    try { localStorage.setItem(key, JSON.stringify(list)); } catch (e) {}
+}
+
+// Regroupement (algorithme pur) dans js/utils.js (cf. groupRecentList,
+// teste unitairement) ; ce wrapper se contente d'y injecter la liste reelle
+// depuis localStorage.
+function getGroupedRecentList(sectionKey) {
+    return groupRecentList(getRecentList(sectionKey), sectionKey);
+}
+
+// ---------------------------------------------------------------
+// Progression de lecture (reprise des films/episodes, par section)
+// ---------------------------------------------------------------
+const PROGRESS_KEY_PREFIX = 'iptv_progress_';
+const PROGRESS_DONE_RATIO = 0.92; // au-dela : considere comme termine, pas de reprise proposee
+const PROGRESS_MIN_SECONDS = 15; // en dessous : trop tot pour valoir la peine d'etre memorise
+
+function getProgressMap(sectionKey) {
+    try { return JSON.parse(localStorage.getItem(PROGRESS_KEY_PREFIX + sectionKey)) || {}; } catch (e) { return {}; }
+}
+
+function saveProgressMap(sectionKey, map) {
+    try { localStorage.setItem(PROGRESS_KEY_PREFIX + sectionKey, JSON.stringify(map)); } catch (e) {}
+}
+
+function getProgress(sectionKey, item) {
+    if (!item || !item.url) return null;
+    return getProgressMap(sectionKey)[item.url] || null;
+}
+
+function isItemWatched(sectionKey, item) {
+    const p = getProgress(sectionKey, item);
+    return !!(p && p.done);
+}
+
+// Enregistre la position de lecture. Un contenu regarde au-dela de
+// PROGRESS_DONE_RATIO est marque termine (repart de 0 la prochaine fois,
+// sans proposer de reprise) ; en dessous de PROGRESS_MIN_SECONDS, on
+// considere que la lecture vient de commencer et on ne garde rien.
+function saveProgress(sectionKey, item, position, duration) {
+    if (!item || !item.url || !isFinite(duration) || duration <= 0) return;
+    const map = getProgressMap(sectionKey);
+    const ratio = position / duration;
+    if (ratio >= PROGRESS_DONE_RATIO) {
+        map[item.url] = { ...item, position: 0, duration, done: true, updatedAt: Date.now() };
+    } else if (position < PROGRESS_MIN_SECONDS) {
+        delete map[item.url];
+    } else {
+        map[item.url] = { ...item, position, duration, done: false, updatedAt: Date.now() };
+    }
+    saveProgressMap(sectionKey, map);
+}
+
+// ---------------------------------------------------------------
+// Preference de piste audio/sous-titres par contenu (survit a un
+// redemarrage de l'app, contrairement a preferredAudioLabel/
+// preferredSubtitleLabel qui ne font que suivre d'un episode a l'autre
+// PENDANT la meme session, cf. applyPreferredAudioTrack). Stockage separe
+// de la progression (et non fusionne dedans) car un choix de piste doit
+// rester memorise meme si la lecture est trop courte pour justifier une
+// reprise (< PROGRESS_MIN_SECONDS, ce qui supprime l'entree de progression).
+// ---------------------------------------------------------------
+const TRACK_PREF_KEY_PREFIX = 'iptv_trackpref_';
+
+function getTrackPrefMap(sectionKey) {
+    try { return JSON.parse(localStorage.getItem(TRACK_PREF_KEY_PREFIX + sectionKey)) || {}; } catch (e) { return {}; }
+}
+
+function saveTrackPrefMap(sectionKey, map) {
+    try { localStorage.setItem(TRACK_PREF_KEY_PREFIX + sectionKey, JSON.stringify(map)); } catch (e) {}
+}
+
+function getTrackPref(sectionKey, item) {
+    if (!item || !item.url) return null;
+    return getTrackPrefMap(sectionKey)[item.url] || null;
+}
+
+function saveTrackPref(sectionKey, item, audioLabel, subtitleLabel) {
+    if (!sectionKey || !item || !item.url) return;
+    const map = getTrackPrefMap(sectionKey);
+    map[item.url] = { audioLabel: audioLabel || null, subtitleLabel: (subtitleLabel === undefined ? null : subtitleLabel), updatedAt: Date.now() };
+    saveTrackPrefMap(sectionKey, map);
+}
+
+function clearProgress(sectionKey, item) {
+    if (!item || !item.url) return;
+    const map = getProgressMap(sectionKey);
+    delete map[item.url];
+    saveProgressMap(sectionKey, map);
+}
+
+// Contenus entames mais pas termines, les plus recents en premier —
+// alimente la categorie systeme "Continuer à regarder".
+function getContinueWatchingList(sectionKey) {
+    return Object.values(getProgressMap(sectionKey))
+        .filter(p => !p.done)
+        .sort((a, b) => b.updatedAt - a.updatedAt)
+        .slice(0, 40);
+}
+

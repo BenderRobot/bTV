@@ -175,7 +175,13 @@ body { background-color: var(--bg-black); color: var(--text-primary); width: 192
    coupe par l'overflow du conteneur. align-items:center evite un grand vide
    sous les affiches quand la piste est plus haute que les affiches. */
 .rail-track { flex: 1; display: flex; gap: 30px; overflow-x: auto; overflow-y: hidden; padding: 70px 26px 40px; align-items: center; }
-.rail-poster { position: relative; width: 250px; height: 360px; flex-shrink: 0; border-radius: 10px; overflow: hidden; background: var(--bg-surface); border: 3px solid transparent; opacity: 0.72; transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease; }
+/* content-visibility: auto laisse le moteur sauter le travail de rendu
+   (style/layout/paint) des affiches hors ecran — utile ici puisque "Tout
+   afficher" peut construire jusqu'a 300 tuiles d'un coup (cf. ALL_CAP dans
+   selectCategory). contain-intrinsic-size reserve la taille exacte de la
+   tuile pour eviter tout saut visuel quand son rendu est saute. Propriete
+   ignoree sans effet si le WebKit Tizen ne la supporte pas : aucun risque. */
+.rail-poster { position: relative; width: 250px; height: 360px; flex-shrink: 0; border-radius: 10px; overflow: hidden; background: var(--bg-surface); border: 3px solid transparent; opacity: 0.72; transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease; content-visibility: auto; contain-intrinsic-size: 250px 360px; }
 .rail-poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .rail-poster-fallback { display: flex; align-items: center; justify-content: center; height: 100%; padding: 12px; text-align: center; color: var(--text-secondary); font-size: 15px; font-weight: 600; }
 .rail-poster-title { position: absolute; left: 0; right: 0; bottom: 0; padding: 10px 12px; background: rgba(0,0,0,0.78); color: #fff; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

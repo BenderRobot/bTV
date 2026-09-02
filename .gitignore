@@ -12,3 +12,6 @@ images/grok-video-*.mp4
 images/ChatGPT Image*
 images/tizen_32.png
 images/tv.svg
+
+# Dependances de dev (tests/lint, cf. package.json) — n'affectent pas l'app deployee
+node_modules/

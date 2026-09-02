@@ -300,6 +300,18 @@
          branches sur la TV (cf. toggleDebugLog dans Parametres). -->
     <div id="debug-log-panel" class="debug-log-panel"></div>
 
-    <script src="js/main.js"></script>
+    <!-- Anciennement un seul main.js (3400 lignes) : decoupe en fichiers
+         thematiques chargees en <script> classiques, dans cet ordre precis
+         (chacun s'appuie sur les globales definies par les precedents),
+         sans systeme de module ni changement de comportement (cf. l'en-tete
+         de js/app-shell.js pour le detail du principe). -->
+    <script src="js/utils.js"></script>
+    <script src="js/app-shell.js"></script>
+    <script src="js/modals.js"></script>
+    <script src="js/data.js"></script>
+    <script src="js/browse.js"></script>
+    <script src="js/input.js"></script>
+    <script src="js/player.js"></script>
+    <script src="js/bootstrap.js"></script>
 </body>
 </html>

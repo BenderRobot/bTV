@@ -181,6 +181,16 @@ function clearContentSearch() {
     input.dispatchEvent(new Event('input'));
 }
 
+// Meme principe pour la recherche de categories dans la sidebar (cf.
+// handleBack : Retour l'efface au lieu de quitter la section quand elle
+// contient du texte).
+function clearCategorySearch() {
+    const input = document.getElementById('browse-cat-search');
+    if (!input.value) return;
+    input.value = '';
+    input.dispatchEvent(new Event('input'));
+}
+
 // Parcourir la sidebar au Haut/Bas declenchait un chargement COMPLET de
 // chaque categorie simplement survolee (pas seulement celle finalement
 // choisie) : en descendant vite une liste de plusieurs dizaines de
@@ -958,7 +968,16 @@ function removeFocusedFromRecent() {
 // (jamais plafonnee) et non railBaseList (l'affichage initial peut etre
 // plafonne a 300 items pour "Tout afficher"), sinon un contenu au-dela de
 // ce plafond serait introuvable meme en tapant son nom exact.
-document.getElementById('browse-search').addEventListener('input', function (e) {
+// La dictee vocale du clavier Samsung (bouton micro de la telecommande)
+// remplit le champ directement sans forcement declencher d'evenement
+// "input" classique (integration native, hors de notre controle) : un seul
+// listener "input" laissait alors l'app filtrer sur l'ancienne valeur tant
+// qu'aucune frappe reelle n'avait lieu ensuite, donnant l'impression qu'une
+// recherche vocale du titre complet "ne trouve rien" alors qu'une recherche
+// tapee lettre par lettre fonctionnait. On ecoute aussi "change" et "blur"
+// (declenches par la fermeture du clavier virtuel, dictee comprise) pour
+// rattraper ce cas, en plus de "input" pour la frappe classique.
+function applyContentSearchFilter(e) {
     const q = e.target.value.trim().toLowerCase();
     const RESULTS_CAP = 300;
     let filtered = q ? railFullList.filter(it => it.name.toLowerCase().includes(q)) : railBaseList;
@@ -966,6 +985,9 @@ document.getElementById('browse-search').addEventListener('input', function (e) 
     railList = filtered;
     railIndex = 0;
     renderRailOrChannelList(railList);
+}
+['input', 'change', 'blur'].forEach(evt => {
+    document.getElementById('browse-search').addEventListener(evt, applyContentSearchFilter);
 });
 
 // Filtre la liste des categories dans la sidebar (nom uniquement). Le

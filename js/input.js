@@ -369,6 +369,18 @@ function handleEnter() {
 }
 
 function handleBack() {
+    // Si le clavier virtuel est reellement ouvert sur un champ de recherche
+    // (dictee vocale comprise), Retour doit d'abord juste le refermer, pas
+    // quitter la zone de recherche ni effacer la saisie — sinon impossible
+    // de "faire une pause" dans une recherche en cours pour reprendre plus
+    // tard en ajoutant/supprimant des lettres, cf. retour utilisateur. Un
+    // Retour suivant (clavier deja ferme) reprend le comportement normal
+    // ci-dessous (quitter la zone, ou effacer via clearCategorySearch).
+    const activeSearchInput = document.activeElement;
+    if (activeSearchInput && (activeSearchInput.id === 'browse-search' || activeSearchInput.id === 'browse-cat-search')) {
+        activeSearchInput.blur();
+        return;
+    }
     blurBrowseSearchInputs();
     if (currentView === 'player') {
         if (trackMenuNav) {
@@ -387,7 +399,14 @@ function handleBack() {
     }
 
     if (currentView === 'browse') {
-        if (browseFocusZone === 'search' || browseFocusZone === 'fav') {
+        if (browseFocusZone === 'sidebar' && browseCatIndex === -1 && document.getElementById('browse-cat-search').value) {
+            // Retour avec une recherche de categorie en cours : l'efface
+            // d'abord plutot que de quitter directement la section (cf.
+            // clearCategorySearch) — sans ça, le texte restait affiche mais
+            // plus editable une fois le clavier virtuel referme, et Retour
+            // renvoyait carrement a l'accueil.
+            clearCategorySearch();
+        } else if (browseFocusZone === 'search' || browseFocusZone === 'fav') {
             browseFocusZone = 'rail';
             updateSearchZoneFocus();
             updateFavButtonFocus();

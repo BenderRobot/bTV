@@ -129,6 +129,31 @@ async function fetchJson(url, retries, signal) {
 // concurrentes qui finissent par saturer/faire timeout le panel, et c'est
 // alors la DERNIERE categorie sur laquelle l'utilisateur s'arrete qui
 // "prend l'erreur", meme si elle n'y est pour rien.
+// Nombre de "grandes" tentatives (en plus des 3 re-essais internes de
+// fetchJson a chaque fois) avant d'abandonner et d'afficher une vraie
+// erreur. Observe en conditions reelles : un creux serveur peut durer
+// bien plus que les ~6s deja couvertes par fetchJson (JSON tronque qui se
+// resout tout seul apres plusieurs dizaines de secondes) — sans ce palier,
+// l'app affichait "Erreur reseau" pour un simple ralentissement passager,
+// laissant croire a l'utilisateur que le serveur ou l'app est en panne
+// alors que reessayer plus tard (ou attendre) suffit. Tant qu'il reste des
+// tentatives, l'ecran garde "Chargement..." (pas d'erreur affichee) : cf.
+// selectCategory, qui n'affiche l'etat vide qu'au retour de []/null ici.
+const CATEGORY_OUTER_MAX_ATTEMPTS = 5;
+const CATEGORY_OUTER_RETRY_DELAY_MS = 4000;
+
+function abortableDelay(ms, signal) {
+    return new Promise((resolve, reject) => {
+        const t = setTimeout(resolve, ms);
+        if (signal) {
+            signal.addEventListener('abort', () => {
+                clearTimeout(t);
+                reject(Object.assign(new Error('Aborted'), { name: 'AbortError' }));
+            }, { once: true });
+        }
+    });
+}
+
 async function fetchCategoryItems(sectionKey, catId, signal) {
     const cacheKey = `${sectionKey}_${catId}`;
     const kind = sectionKey === 'series' ? 'series' : 'stream';
@@ -137,41 +162,53 @@ async function fetchCategoryItems(sectionKey, catId, signal) {
     const { serverUrl, username, password } = window.iptvServerConfig;
     const action = sectionConfig[sectionKey].streamAction;
     const url = `${serverUrl}/player_api.php?username=${username}&password=${password}&action=${action}&category_id=${catId}`;
-    const startedAt = performance.now();
-    debugLog(`→ Requête catégorie id=${catId} (${sectionKey})`);
-    try {
-        // 3 nouvelles tentatives (1s/2s/3s de delai) au lieu de 2 : observe en
-        // conditions reelles un echec par reponse JSON tronquee ("Unexpected
-        // end of JSON input", cf. journal de debug) qui se resolvait tout
-        // seul quelques instants plus tard — la fenetre precedente (~3s au
-        // total) etait trop courte pour laisser passer ce type de creux
-        // reseau/serveur transitoire.
-        const items = await fetchJson(url, 3, signal);
-        const ms = Math.round(performance.now() - startedAt);
-        if (!Array.isArray(items)) {
-            // Le panel repond parfois par un objet d'erreur (session expiree,
-            // trop de requetes recentes...) plutot qu'une liste : sans ce
-            // controle, ça finissait silencieusement en "Aucun contenu."
-            console.error('Reponse inattendue (categorie):', items);
-            debugLog(`✗ Réponse inattendue id=${catId} après ${ms}ms : ${JSON.stringify(items).slice(0, 120)}`, 'error');
-            flashAppToast('Réponse inattendue du serveur pour cette catégorie');
-            return [];
+
+    for (let outerAttempt = 0; outerAttempt < CATEGORY_OUTER_MAX_ATTEMPTS; outerAttempt++) {
+        const startedAt = performance.now();
+        const attemptLabel = `${outerAttempt + 1}/${CATEGORY_OUTER_MAX_ATTEMPTS}`;
+        debugLog(`→ Requête catégorie id=${catId} (${sectionKey}) [${attemptLabel}]`);
+        try {
+            // 3 re-essais internes (1s/2s/3s de delai) par grande tentative :
+            // observe en conditions reelles un echec par reponse JSON tronquee
+            // ("Unexpected end of JSON input") qui se resolvait tout seul
+            // quelques instants plus tard.
+            const items = await fetchJson(url, 3, signal);
+            const ms = Math.round(performance.now() - startedAt);
+            if (!Array.isArray(items)) {
+                // Le panel repond parfois par un objet d'erreur (session expiree,
+                // trop de requetes recentes...) plutot qu'une liste : pas un
+                // creux passager, inutile de reessayer.
+                console.error('Reponse inattendue (categorie):', items);
+                debugLog(`✗ Réponse inattendue id=${catId} après ${ms}ms : ${JSON.stringify(items).slice(0, 120)}`, 'error');
+                flashAppToast('Réponse inattendue du serveur pour cette catégorie');
+                return [];
+            }
+            debugLog(`✓ Catégorie id=${catId} chargée en ${ms}ms (${items.length} items)`, 'ok');
+            cacheSet(itemsCache, cacheKey, items, 30);
+            schedulePersistCaches();
+            return normalizeList(items, kind, sectionKey);
+        } catch (e) {
+            const ms = Math.round(performance.now() - startedAt);
+            if (e.name === 'AbortError') {
+                debugLog(`⨯ Catégorie id=${catId} annulée après ${ms}ms (catégorie quittée entre-temps)`, 'warn');
+                return null; // abandon volontaire : distinct d'une vraie erreur ([])
+            }
+            const isLastAttempt = outerAttempt === CATEGORY_OUTER_MAX_ATTEMPTS - 1;
+            debugLog(`✗ Échec catégorie id=${catId} après ${ms}ms [${attemptLabel}] : ${e.message}`, isLastAttempt ? 'error' : 'warn');
+            if (isLastAttempt) {
+                console.error('Erreur chargement contenu:', e);
+                flashAppToast('Erreur réseau lors du chargement de la catégorie');
+                return [];
+            }
         }
-        debugLog(`✓ Catégorie id=${catId} chargée en ${ms}ms (${items.length} items)`, 'ok');
-        cacheSet(itemsCache, cacheKey, items, 30);
-        schedulePersistCaches();
-        return normalizeList(items, kind, sectionKey);
-    } catch (e) {
-        const ms = Math.round(performance.now() - startedAt);
-        if (e.name === 'AbortError') {
-            debugLog(`⨯ Catégorie id=${catId} annulée après ${ms}ms (catégorie quittée entre-temps)`, 'warn');
-            return null; // abandon volontaire : distinct d'une vraie erreur ([])
+        try {
+            await abortableDelay(CATEGORY_OUTER_RETRY_DELAY_MS, signal);
+        } catch (e) {
+            debugLog(`⨯ Catégorie id=${catId} annulée pendant l'attente entre tentatives`, 'warn');
+            return null;
         }
-        console.error('Erreur chargement contenu:', e);
-        debugLog(`✗ Échec catégorie id=${catId} après ${ms}ms : ${e.message}`, 'error');
-        flashAppToast('Erreur réseau lors du chargement de la catégorie');
-        return [];
     }
+    return []; // inatteignable en pratique (la derniere iteration renvoie deja []), garde-fou de type
 }
 
 // Recupere l'integralite du catalogue d'une section (sans filtrer par
@@ -185,23 +222,35 @@ async function fetchAllItems(sectionKey) {
     const { serverUrl, username, password } = window.iptvServerConfig;
     const action = sectionConfig[sectionKey].streamAction;
     const url = `${serverUrl}/player_api.php?username=${username}&password=${password}&action=${action}`;
-    try {
-        const items = await fetchJson(url, 3); // cf. fetchCategoryItems : reponses JSON tronquees observees en conditions reelles
-        if (!Array.isArray(items)) {
-            console.error('Reponse inattendue (catalogue complet):', items);
-            flashAppToast('Réponse inattendue du serveur pour ce catalogue');
-            return [];
+
+    // Meme principe que fetchCategoryItems : un creux serveur peut durer plus
+    // longtemps que les re-essais internes de fetchJson, sans etre une
+    // vraie panne. On garde l'ecran de chargement (pas d'erreur) tant qu'il
+    // reste des tentatives.
+    for (let outerAttempt = 0; outerAttempt < CATEGORY_OUTER_MAX_ATTEMPTS; outerAttempt++) {
+        try {
+            const items = await fetchJson(url, 3);
+            if (!Array.isArray(items)) {
+                console.error('Reponse inattendue (catalogue complet):', items);
+                flashAppToast('Réponse inattendue du serveur pour ce catalogue');
+                return [];
+            }
+            // "Tout afficher" peut representer des milliers d'entrees : cap plus
+            // bas (5) puisque chacune de ces entrees est deja tres volumineuse a
+            // elle seule (catalogue complet d'une section).
+            cacheSet(itemsCache, cacheKey, items, 5);
+            return normalizeList(items, kind, sectionKey);
+        } catch (e) {
+            const isLastAttempt = outerAttempt === CATEGORY_OUTER_MAX_ATTEMPTS - 1;
+            if (isLastAttempt) {
+                console.error('Erreur chargement complet:', e);
+                flashAppToast('Erreur réseau lors du chargement du catalogue');
+                return [];
+            }
         }
-        // "Tout afficher" peut representer des milliers d'entrees : cap plus
-        // bas (5) puisque chacune de ces entrees est deja tres volumineuse a
-        // elle seule (catalogue complet d'une section).
-        cacheSet(itemsCache, cacheKey, items, 5);
-        return normalizeList(items, kind, sectionKey);
-    } catch (e) {
-        console.error('Erreur chargement complet:', e);
-        flashAppToast('Erreur réseau lors du chargement du catalogue');
-        return [];
+        await abortableDelay(CATEGORY_OUTER_RETRY_DELAY_MS);
     }
+    return [];
 }
 
 // Rediffusion (catchup) : recupere l'EPG passe d'une chaine et construit les

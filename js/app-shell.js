@@ -42,11 +42,14 @@ function showView(name) {
 }
 
 // Initialisation affichage login
+// Simple deplacement du curseur (surbrillance CSS) : n'appelle PAS el.focus()
+// sur le champ courant, sinon le clavier virtuel Samsung s'ouvrait des qu'on
+// se deplaçait sur un champ, avant meme d'avoir appuye sur OK. L'ouverture
+// reelle du clavier reste le fait de handleEnter uniquement.
 function updateLoginFocus() {
     loginElements.forEach((el, idx) => {
         if (idx === loginFocusIndex) {
             el.classList.add('focused');
-            if (el.tagName === 'INPUT') el.focus();
         } else {
             el.classList.remove('focused');
             if (el.tagName === 'INPUT') el.blur();

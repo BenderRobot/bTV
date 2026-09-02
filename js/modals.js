@@ -31,14 +31,25 @@ function handleAccountModalKey(keyCode) {
 }
 
 // ---------------------------------------------------------------
-// Modale Parametres
+// Modale Parametres : sidebar de sections (General/Sous-titres/Categories
+// masquees/Taille du texte) + panneau de contenu. Deux zones de focus,
+// comme le modele deja utilise pour la navigation Films/Series/Direct
+// (sidebar/rail) : settingsZone 'nav' (sidebar) ou 'content' (panneau
+// actif). Gauche/Droite passent d'une zone a l'autre ET, sur une ligne a
+// valeur cyclique (data-cycle), changent directement sa valeur.
 // ---------------------------------------------------------------
 let settingsModalOpen = false;
-let settingsFocusIndex = 0;
+const SETTINGS_PANELS = ['general', 'subtitles', 'categories', 'textsize'];
+let settingsZone = 'nav'; // 'nav' | 'content'
+let settingsNavIndex = 0;
+let settingsContentIndex = 0;
+let settingsHiddenCatSection = 'movies'; // section affichee dans "Categories masquees"
 
 function openSettingsModal() {
     settingsModalOpen = true;
-    settingsFocusIndex = 0;
+    settingsZone = 'nav';
+    settingsNavIndex = 0;
+    settingsContentIndex = 0;
     document.getElementById('settings-server-url').innerText = window.iptvServerConfig ? window.iptvServerConfig.serverUrl : '';
     document.getElementById('settings-mac').innerText = cachedDeviceMac || '…';
     if (!cachedDeviceMac) {
@@ -51,8 +62,173 @@ function openSettingsModal() {
     clearInterval(settingsMemoryTimer);
     settingsMemoryTimer = setInterval(updateSettingsMemoryDisplay, 2000);
     updateSettingsPerfButtonLabel();
-    updateSettingsModalFocus();
+    renderSubtitlePrefsPanel();
+    renderTextSizePanel();
+    renderHiddenCategoriesPanel();
+    showSettingsPanel(SETTINGS_PANELS[settingsNavIndex]);
+    updateSettingsNavFocus();
+    updateSettingsContentFocus();
     document.getElementById('settings-modal').classList.add('visible');
+}
+
+function showSettingsPanel(panelKey) {
+    // .active marque la section courante en permanence (meme une fois le
+    // focus passe dans le panneau, cf. settingsZone) ; .focused (cf.
+    // updateSettingsNavFocus) ne s'applique lui que zone 'nav' active,
+    // sinon la sidebar semblerait "perdre" sa selection en changeant de zone.
+    document.querySelectorAll('.settings-nav-item').forEach(el => el.classList.toggle('active', el.dataset.panel === panelKey));
+    document.querySelectorAll('.settings-panel').forEach(el => el.classList.toggle('active', el.dataset.panel === panelKey));
+}
+
+function updateSettingsNavFocus() {
+    document.querySelectorAll('.settings-nav-item').forEach((el, idx) => {
+        el.classList.toggle('focused', settingsZone === 'nav' && idx === settingsNavIndex);
+    });
+}
+
+function getSettingsPanelFocusables() {
+    const panelKey = SETTINGS_PANELS[settingsNavIndex];
+    return Array.from(document.querySelectorAll(`#settings-panel-${panelKey} .settings-focusable`));
+}
+
+function updateSettingsContentFocus() {
+    const focusables = getSettingsPanelFocusables();
+    focusables.forEach((el, idx) => {
+        const focused = settingsZone === 'content' && idx === settingsContentIndex;
+        el.classList.toggle('focused', focused);
+        if (focused) el.scrollIntoView({ block: 'nearest' });
+    });
+}
+
+function switchSettingsPanel() {
+    settingsContentIndex = 0;
+    showSettingsPanel(SETTINGS_PANELS[settingsNavIndex]);
+    updateSettingsNavFocus();
+    updateSettingsContentFocus();
+}
+
+function activateSettingsFocusable(el) {
+    if (!el) return;
+    if (el.dataset.cycle) {
+        cycleSettingsValue(el.dataset.cycle, 1);
+        return;
+    }
+    if (el.classList.contains('settings-cat-row')) {
+        toggleSettingsCatRow(el);
+        return;
+    }
+    const action = el.getAttribute('data-action');
+    if (action === 'logout') logout();
+    else if (action === 'server') editServer();
+    else if (action === 'theme') toggleAppTheme(); // reste ouvert, pratique pour comparer
+    else if (action === 'perf') togglePerfHud();
+    else if (action === 'debug') toggleDebugLog();
+}
+
+function cycleSettingsValue(cycleKey, direction) {
+    if (cycleKey === 'subtitle-font') {
+        const prefs = getSubtitlePrefs();
+        prefs.fontIndex = (prefs.fontIndex + direction + SUBTITLE_FONT_OPTIONS.length) % SUBTITLE_FONT_OPTIONS.length;
+        saveSubtitlePrefs(prefs);
+        renderSubtitlePrefsPanel();
+        applySubtitleStylePrefs();
+    } else if (cycleKey === 'subtitle-color') {
+        const prefs = getSubtitlePrefs();
+        prefs.colorIndex = (prefs.colorIndex + direction + SUBTITLE_COLOR_OPTIONS.length) % SUBTITLE_COLOR_OPTIONS.length;
+        saveSubtitlePrefs(prefs);
+        renderSubtitlePrefsPanel();
+        applySubtitleStylePrefs();
+    } else if (cycleKey === 'subtitle-bg') {
+        const prefs = getSubtitlePrefs();
+        prefs.bgIndex = (prefs.bgIndex + direction + SUBTITLE_BG_OPTIONS.length) % SUBTITLE_BG_OPTIONS.length;
+        saveSubtitlePrefs(prefs);
+        renderSubtitlePrefsPanel();
+        applySubtitleStylePrefs();
+    } else if (cycleKey === 'hidden-cat-section') {
+        const sections = ['movies', 'series', 'live'];
+        const idx = sections.indexOf(settingsHiddenCatSection);
+        settingsHiddenCatSection = sections[(idx + direction + sections.length) % sections.length];
+        renderHiddenCategoriesPanel();
+    } else if (cycleKey === 'text-size') {
+        let idx = (getTextSizeIndex() + direction + TEXT_SIZE_OPTIONS.length) % TEXT_SIZE_OPTIONS.length;
+        saveTextSizeIndex(idx);
+        applyTextSize(idx);
+        renderTextSizePanel();
+    }
+}
+
+function renderSubtitlePrefsPanel() {
+    const prefs = getSubtitlePrefs();
+    const font = SUBTITLE_FONT_OPTIONS[prefs.fontIndex];
+    const color = SUBTITLE_COLOR_OPTIONS[prefs.colorIndex];
+    const bg = SUBTITLE_BG_OPTIONS[prefs.bgIndex];
+    document.getElementById('settings-subtitle-font-value').innerText = font;
+    document.getElementById('settings-subtitle-color-value').innerText = color.label;
+    document.getElementById('settings-subtitle-bg-value').innerText = bg.label;
+    const preview = document.getElementById('settings-subtitle-preview-text');
+    preview.style.fontFamily = font;
+    preview.style.color = color.value;
+    preview.style.background = bg.value;
+}
+
+function renderTextSizePanel() {
+    document.getElementById('settings-textsize-value').innerText = TEXT_SIZE_OPTIONS[getTextSizeIndex()].label;
+}
+
+const HIDDEN_CAT_SECTION_LABELS = { movies: 'Films', series: 'Séries', live: 'Direct' };
+let hiddenCatRenderToken = 0;
+
+// Categories masquees : source = categoriesCache (deja peuple par le
+// prechargement du splash pour live/movies/series, cf. showSplashAndPreload) ;
+// repli sur une requete a la demande si jamais absent. hiddenCatRenderToken
+// evite d'afficher un resultat perime si la section est changee (cycle
+// rapide Gauche/Droite) avant la fin d'un fetch de repli.
+async function renderHiddenCategoriesPanel() {
+    const myToken = ++hiddenCatRenderToken;
+    const section = settingsHiddenCatSection;
+    document.getElementById('settings-hidden-cat-section-value').innerText = HIDDEN_CAT_SECTION_LABELS[section];
+    const listEl = document.getElementById('settings-category-list');
+    listEl.innerHTML = `<div class="settings-cat-empty">Chargement...</div>`;
+
+    let cats = categoriesCache[section];
+    if (!cats) {
+        try {
+            const { serverUrl, username, password } = window.iptvServerConfig;
+            const action = sectionConfig[section].catAction;
+            cats = await fetchJson(`${serverUrl}/player_api.php?username=${username}&password=${password}&action=${action}`, 1);
+            categoriesCache[section] = cats;
+        } catch (e) {
+            if (myToken !== hiddenCatRenderToken) return;
+            listEl.innerHTML = `<div class="settings-cat-empty">Impossible de charger les catégories.</div>`;
+            return;
+        }
+    }
+    if (myToken !== hiddenCatRenderToken) return;
+
+    if (!cats.length) {
+        listEl.innerHTML = `<div class="settings-cat-empty">Aucune catégorie.</div>`;
+        return;
+    }
+    listEl.innerHTML = '';
+    cats.forEach(cat => {
+        const hidden = isCategoryHidden(section, cat.category_id);
+        const row = document.createElement('div');
+        row.className = `settings-cat-row settings-focusable ${hidden ? 'is-hidden' : ''}`;
+        row.dataset.catId = cat.category_id;
+        row.innerHTML = `<span class="settings-cat-checkbox"></span><span class="settings-cat-name">${escapeHtml(cat.category_name)}</span>`;
+        listEl.appendChild(row);
+    });
+    // La nouvelle liste peut etre plus courte que l'ancienne selection.
+    if (settingsZone === 'content' && SETTINGS_PANELS[settingsNavIndex] === 'categories') {
+        const focusables = getSettingsPanelFocusables();
+        settingsContentIndex = Math.min(settingsContentIndex, Math.max(0, focusables.length - 1));
+        updateSettingsContentFocus();
+    }
+}
+
+function toggleSettingsCatRow(el) {
+    const nowHidden = toggleCategoryHidden(settingsHiddenCatSection, el.dataset.catId);
+    el.classList.toggle('is-hidden', nowHidden);
 }
 
 // Repart de l'ecran de connexion avec les identifiants actuels pre-remplis,
@@ -246,10 +422,6 @@ function debugLog(message, level) {
     if (saved) setDebugLogEnabled(true);
 })();
 
-function updateSettingsModalFocus() {
-    document.querySelectorAll('#settings-modal .modal-btn').forEach((b, idx) => b.classList.toggle('focused', idx === settingsFocusIndex));
-}
-
 // ---------------------------------------------------------------
 // Modale de reprise : proposee avant de lancer un contenu deja entame
 // (cf. playItemWithResume). Se ferme automatiquement sur "Recommencer" au
@@ -374,24 +546,101 @@ function handleExitPlayerDialogKey(keyCode) {
     }
 }
 
-function handleSettingsModalKey(keyCode) {
-    const btns = document.querySelectorAll('#settings-modal .modal-btn');
-    if (keyCode === 38 || keyCode === 37) {
-        settingsFocusIndex = Math.max(0, settingsFocusIndex - 1);
-        updateSettingsModalFocus();
-    } else if (keyCode === 40 || keyCode === 39) {
-        settingsFocusIndex = Math.min(btns.length - 1, settingsFocusIndex + 1);
-        updateSettingsModalFocus();
+// ---------------------------------------------------------------
+// Modale de confirmation avant de quitter l'application (Retour sur
+// l'accueil) : evite une sortie involontaire (appui accidentel, telecommande
+// qui traine dans une poche...). "Annuler" est focus par defaut — une
+// confirmation de sortie ne doit jamais pre-selectionner l'action
+// destructive, sinon un double-appui reflexe quitte quand meme l'app.
+// ---------------------------------------------------------------
+let exitAppDialogOpen = false;
+let exitAppDialogFocusIndex = 0; // 0 = Annuler, 1 = Quitter
+
+function openExitAppDialog() {
+    exitAppDialogOpen = true;
+    exitAppDialogFocusIndex = 0;
+    updateExitAppDialogFocus();
+    document.getElementById('exit-app-dialog').classList.add('visible');
+}
+
+function closeExitAppDialog() {
+    exitAppDialogOpen = false;
+    document.getElementById('exit-app-dialog').classList.remove('visible');
+}
+
+function updateExitAppDialogFocus() {
+    document.getElementById('exit-app-cancel-btn').classList.toggle('focused', exitAppDialogFocusIndex === 0);
+    document.getElementById('exit-app-confirm-btn').classList.toggle('focused', exitAppDialogFocusIndex === 1);
+}
+
+function handleExitAppDialogKey(keyCode) {
+    if (keyCode === 37 || keyCode === 39 || keyCode === 38 || keyCode === 40) {
+        exitAppDialogFocusIndex = exitAppDialogFocusIndex === 0 ? 1 : 0;
+        updateExitAppDialogFocus();
     } else if (keyCode === 13) {
-        const action = btns[settingsFocusIndex].getAttribute('data-action');
-        if (action === 'logout') logout();
-        else if (action === 'server') editServer();
-        else if (action === 'theme') toggleAppTheme(); // reste ouvert, pratique pour comparer
-        else if (action === 'perf') togglePerfHud(); // reste ouvert, pratique pour voir l'etat change
-        else if (action === 'debug') toggleDebugLog(); // reste ouvert, meme logique
-        else closeSettingsModal();
+        closeExitAppDialog();
+        if (exitAppDialogFocusIndex === 1 && typeof tizen !== 'undefined' && tizen.application) {
+            try { tizen.application.getCurrentApplication().exit(); } catch (e) {}
+        }
     } else if (keyCode === 10009 || keyCode === 8) {
-        closeSettingsModal();
+        // Retour sur la modale elle-meme : annule, comme "Annuler".
+        closeExitAppDialog();
+    }
+}
+
+function handleSettingsModalKey(keyCode) {
+    if (keyCode === 38) { // Haut
+        if (settingsZone === 'nav') {
+            if (settingsNavIndex > 0) { settingsNavIndex--; switchSettingsPanel(); }
+        } else if (settingsContentIndex > 0) {
+            settingsContentIndex--;
+            updateSettingsContentFocus();
+        }
+    } else if (keyCode === 40) { // Bas
+        if (settingsZone === 'nav') {
+            if (settingsNavIndex < SETTINGS_PANELS.length - 1) { settingsNavIndex++; switchSettingsPanel(); }
+        } else {
+            const focusables = getSettingsPanelFocusables();
+            if (settingsContentIndex < focusables.length - 1) { settingsContentIndex++; updateSettingsContentFocus(); }
+        }
+    } else if (keyCode === 37) { // Gauche : retour vers la sidebar, ou valeur precedente sur une ligne cyclique
+        if (settingsZone === 'content') {
+            const el = getSettingsPanelFocusables()[settingsContentIndex];
+            if (el && el.dataset.cycle) {
+                cycleSettingsValue(el.dataset.cycle, -1);
+            } else {
+                settingsZone = 'nav';
+                updateSettingsNavFocus();
+                updateSettingsContentFocus();
+            }
+        }
+    } else if (keyCode === 39) { // Droite : entre dans le panneau, ou valeur suivante sur une ligne cyclique
+        if (settingsZone === 'nav') {
+            settingsZone = 'content';
+            settingsContentIndex = 0;
+            updateSettingsNavFocus();
+            updateSettingsContentFocus();
+        } else {
+            const el = getSettingsPanelFocusables()[settingsContentIndex];
+            if (el && el.dataset.cycle) cycleSettingsValue(el.dataset.cycle, 1);
+        }
+    } else if (keyCode === 13) { // OK
+        if (settingsZone === 'nav') {
+            settingsZone = 'content';
+            settingsContentIndex = 0;
+            updateSettingsNavFocus();
+            updateSettingsContentFocus();
+        } else {
+            activateSettingsFocusable(getSettingsPanelFocusables()[settingsContentIndex]);
+        }
+    } else if (keyCode === 10009 || keyCode === 8) { // Retour : remonte a la sidebar, puis ferme
+        if (settingsZone === 'content') {
+            settingsZone = 'nav';
+            updateSettingsNavFocus();
+            updateSettingsContentFocus();
+        } else {
+            closeSettingsModal();
+        }
     }
 }
 

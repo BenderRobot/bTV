@@ -20,6 +20,65 @@ const itemsCache = {};
 const vodInfoCache = {};
 const seriesInfoCache = {};
 
+// ---------------------------------------------------------------
+// Preferences d'affichage (Parametres > Sous-titres / Categories masquees /
+// Taille du texte) : purement locales (localStorage), independantes du
+// compte IPTV, appliquees par app-shell.js (taille du texte) et player.js
+// (sous-titres) ; le filtrage des categories masquees se fait dans
+// browse.js (renderSidebarCategories).
+// ---------------------------------------------------------------
+const SUBTITLE_PREFS_KEY = 'iptv_subtitle_prefs';
+const SUBTITLE_FONT_OPTIONS = ['Segoe UI', 'Arial', 'Verdana', 'Georgia', 'Courier New'];
+const SUBTITLE_COLOR_OPTIONS = [
+    { label: 'Blanc', value: '#ffffff' },
+    { label: 'Jaune', value: '#ffe14d' },
+    { label: 'Cyan', value: '#4dd8ff' },
+    { label: 'Vert', value: '#4cda3e' }
+];
+const SUBTITLE_BG_OPTIONS = [
+    { label: 'Semi-transparent', value: 'rgba(0,0,0,0.6)' },
+    { label: 'Opaque', value: 'rgba(0,0,0,0.95)' },
+    { label: 'Aucun', value: 'transparent' }
+];
+
+function getSubtitlePrefs() {
+    const defaults = { fontIndex: 0, colorIndex: 0, bgIndex: 0 };
+    try {
+        const stored = JSON.parse(localStorage.getItem(SUBTITLE_PREFS_KEY));
+        return stored ? { ...defaults, ...stored } : defaults;
+    } catch (e) {
+        return defaults;
+    }
+}
+
+function saveSubtitlePrefs(prefs) {
+    try { localStorage.setItem(SUBTITLE_PREFS_KEY, JSON.stringify(prefs)); } catch (e) {}
+}
+
+const HIDDEN_CATEGORIES_KEY_PREFIX = 'iptv_hidden_categories_';
+
+function getHiddenCategoryIds(sectionKey) {
+    try { return JSON.parse(localStorage.getItem(HIDDEN_CATEGORIES_KEY_PREFIX + sectionKey)) || []; } catch (e) { return []; }
+}
+
+function isCategoryHidden(sectionKey, catId) {
+    return getHiddenCategoryIds(sectionKey).includes(String(catId));
+}
+
+// Renvoie le nouvel etat (true = desormais masquee).
+function toggleCategoryHidden(sectionKey, catId) {
+    const idStr = String(catId);
+    let ids = getHiddenCategoryIds(sectionKey);
+    const wasHidden = ids.includes(idStr);
+    ids = wasHidden ? ids.filter(id => id !== idStr) : [...ids, idStr];
+    try { localStorage.setItem(HIDDEN_CATEGORIES_KEY_PREFIX + sectionKey, JSON.stringify(ids)); } catch (e) {}
+    return !wasHidden;
+}
+
+// TEXT_SIZE_* : deplace dans app-shell.js (cf. applyTextSize), applique des
+// le chargement de ce tout premier fichier applicatif — le declarer ici
+// (charge plus tard) provoquerait une ReferenceError au demarrage.
+
 // cacheSet, formatTime, escapeHtml, decodeEpgText, resolveExtension et
 // buildTimeshiftUrl vivent desormais dans js/utils.js (charge avant ce
 // fichier dans index.html) : fonctions pures, testees unitairement sans TV

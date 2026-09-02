@@ -26,6 +26,10 @@ window.addEventListener('keydown', function (e) {
         handleExitPlayerDialogKey(e.keyCode);
         return;
     }
+    if (exitAppDialogOpen) {
+        handleExitAppDialogKey(e.keyCode);
+        return;
+    }
     if (miniPlayerFocused) {
         handleMiniPlayerKey(e.keyCode);
         return;
@@ -447,9 +451,9 @@ function handleBack() {
             enterHome();
         }
     } else if (currentView === 'home') {
-        if (typeof tizen !== 'undefined' && tizen.application) {
-            try { tizen.application.getCurrentApplication().exit(); } catch (e) {}
-        }
+        // Demande confirmation plutot que de quitter directement (cf.
+        // retour utilisateur : evite une sortie involontaire).
+        openExitAppDialog();
     }
 }
 

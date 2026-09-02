@@ -10,6 +10,37 @@ const videoPlayerEl = document.getElementById('video-player');
 const playerErrorBox = document.getElementById('player-error');
 let hlsInstance = null;
 
+// ---------------------------------------------------------------
+// Preferences visuelles des sous-titres (Parametres > Sous-titres),
+// appliquees aux deux backends. AVPlay ne rend pas les sous-titres
+// lui-meme (affichage manuel, cf. onsubtitlechange plus bas) : simple style
+// inline sur #avplay-subtitle-overlay. <video> natif (hls.js) rend ses
+// pistes WebVTT via le pseudo-element ::cue, seul point d'entree CSS
+// standard pour ça — impossible a cibler via .style sur <video> lui-meme,
+// on injecte/actualise donc une regle dediee dans un <style> a part.
+// ---------------------------------------------------------------
+function applySubtitleStylePrefs() {
+    const prefs = getSubtitlePrefs();
+    const font = SUBTITLE_FONT_OPTIONS[prefs.fontIndex] || SUBTITLE_FONT_OPTIONS[0];
+    const color = (SUBTITLE_COLOR_OPTIONS[prefs.colorIndex] || SUBTITLE_COLOR_OPTIONS[0]).value;
+    const bg = (SUBTITLE_BG_OPTIONS[prefs.bgIndex] || SUBTITLE_BG_OPTIONS[0]).value;
+
+    const overlay = document.getElementById('avplay-subtitle-overlay');
+    overlay.style.fontFamily = font;
+    overlay.style.color = color;
+    overlay.style.background = bg;
+
+    let styleEl = document.getElementById('subtitle-cue-style');
+    if (!styleEl) {
+        styleEl = document.createElement('style');
+        styleEl.id = 'subtitle-cue-style';
+        document.head.appendChild(styleEl);
+    }
+    styleEl.textContent = `video::cue { font-family: ${font}; color: ${color}; background: ${bg}; }`;
+}
+
+applySubtitleStylePrefs();
+
 // Etat de l'OSD du lecteur video. Gauche/Droite avance/recule directement
 // dans la video par defaut (osdZone 'seek') ; Haut deploie la rangee de
 // boutons (Lecture/Pause, Suivant, Audio, Sous-titres), navigable en

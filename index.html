@@ -196,22 +196,80 @@
         </div>
     </div>
 
-    <!-- Modale Parametres -->
-    <div id="settings-modal" class="modal-overlay">
-        <div class="modal-box modal-box-wide">
-            <h3>Paramètres</h3>
-            <div class="settings-info">
-                <div class="modal-row"><strong>Serveur :</strong> <span id="settings-server-url"></span></div>
-                <div class="modal-row"><strong>Adresse MAC :</strong> <span id="settings-mac"></span></div>
-                <div class="modal-row"><strong>Mémoire utilisée par l'app :</strong> <span id="settings-memory"></span></div>
+    <!-- Modale de confirmation avant de quitter l'application (Retour sur
+         l'accueil) : evite une sortie involontaire (appui accidentel sur
+         Retour, telecommande qui traine dans une poche...). -->
+    <div id="exit-app-dialog" class="modal-overlay">
+        <div class="modal-box">
+            <h3>Quitter bTV ?</h3>
+            <div class="modal-actions">
+                <div class="modal-btn focused" id="exit-app-cancel-btn" data-action="cancel">Annuler</div>
+                <div class="modal-btn" id="exit-app-confirm-btn" data-action="confirm">Quitter</div>
             </div>
-            <div class="modal-actions modal-actions-stacked">
-                <div class="modal-btn focused" id="settings-close-btn" data-action="close">Fermer</div>
-                <div class="modal-btn" id="settings-server-btn" data-action="server">Modifier le serveur</div>
-                <div class="modal-btn" id="settings-theme-btn" data-action="theme">Thème clair/sombre</div>
-                <div class="modal-btn" id="settings-perf-btn" data-action="perf">Performances à l'écran : <span id="settings-perf-state">Désactivées</span></div>
-                <div class="modal-btn" id="settings-debug-btn" data-action="debug">Journal de debug à l'écran : <span id="settings-debug-state">Désactivé</span></div>
-                <div class="modal-btn" id="settings-logout-btn" data-action="logout">Se déconnecter</div>
+        </div>
+    </div>
+
+    <!-- Modale Parametres : sidebar de sections + panneau de contenu (cf.
+         js/modals.js pour la navigation Gauche/Droite entre les deux zones,
+         Haut/Bas dans chacune, Retour pour remonter puis fermer). -->
+    <div id="settings-modal" class="modal-overlay">
+        <div class="modal-box settings-modal-box">
+            <h3>Paramètres</h3>
+            <div class="settings-hint">Haut/Bas : naviguer · Gauche/Droite : changer de section ou de valeur · OK : valider · Retour : fermer</div>
+            <div class="settings-layout">
+                <div class="settings-sidebar" id="settings-sidebar">
+                    <div class="settings-nav-item focused" data-panel="general">Général</div>
+                    <div class="settings-nav-item" data-panel="subtitles">Sous-titres</div>
+                    <div class="settings-nav-item" data-panel="categories">Catégories masquées</div>
+                    <div class="settings-nav-item" data-panel="textsize">Taille du texte</div>
+                </div>
+                <div class="settings-content">
+                    <!-- Général -->
+                    <div class="settings-panel active" id="settings-panel-general" data-panel="general">
+                        <div class="settings-info">
+                            <div class="modal-row"><strong>Serveur :</strong> <span id="settings-server-url"></span></div>
+                            <div class="modal-row"><strong>Adresse MAC :</strong> <span id="settings-mac"></span></div>
+                            <div class="modal-row"><strong>Mémoire utilisée par l'app :</strong> <span id="settings-memory"></span></div>
+                        </div>
+                        <div class="settings-focusable modal-btn" data-action="server">Modifier le serveur</div>
+                        <div class="settings-focusable modal-btn" data-action="theme">Thème clair/sombre</div>
+                        <div class="settings-focusable modal-btn" data-action="perf">Performances à l'écran : <span id="settings-perf-state">Désactivées</span></div>
+                        <div class="settings-focusable modal-btn" data-action="debug">Journal de debug à l'écran : <span id="settings-debug-state">Désactivé</span></div>
+                        <div class="settings-focusable modal-btn" data-action="logout">Se déconnecter</div>
+                    </div>
+
+                    <!-- Sous-titres -->
+                    <div class="settings-panel" id="settings-panel-subtitles" data-panel="subtitles" hidden>
+                        <div class="settings-focusable modal-btn settings-cycle-row" data-cycle="subtitle-font">
+                            <span>Police</span><span class="settings-cycle-value" id="settings-subtitle-font-value">—</span>
+                        </div>
+                        <div class="settings-focusable modal-btn settings-cycle-row" data-cycle="subtitle-color">
+                            <span>Couleur</span><span class="settings-cycle-value" id="settings-subtitle-color-value">—</span>
+                        </div>
+                        <div class="settings-focusable modal-btn settings-cycle-row" data-cycle="subtitle-bg">
+                            <span>Fond</span><span class="settings-cycle-value" id="settings-subtitle-bg-value">—</span>
+                        </div>
+                        <div class="settings-subtitle-preview">
+                            <span id="settings-subtitle-preview-text">Exemple de sous-titre</span>
+                        </div>
+                    </div>
+
+                    <!-- Categories masquees -->
+                    <div class="settings-panel" id="settings-panel-categories" data-panel="categories" hidden>
+                        <div class="settings-focusable modal-btn settings-cycle-row" data-cycle="hidden-cat-section">
+                            <span>Section</span><span class="settings-cycle-value" id="settings-hidden-cat-section-value">—</span>
+                        </div>
+                        <div class="settings-category-list" id="settings-category-list"></div>
+                    </div>
+
+                    <!-- Taille du texte -->
+                    <div class="settings-panel" id="settings-panel-textsize" data-panel="textsize" hidden>
+                        <div class="settings-focusable modal-btn settings-cycle-row" data-cycle="text-size">
+                            <span>Taille du texte</span><span class="settings-cycle-value" id="settings-textsize-value">—</span>
+                        </div>
+                        <div class="modal-row" style="color: var(--text-muted); font-size: 14px;">S'applique à toute l'interface (hors lecteur vidéo).</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

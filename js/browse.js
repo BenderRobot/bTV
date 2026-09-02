@@ -130,7 +130,10 @@ async function renderSidebarCategories() {
         }
     }
 
-    browseCategories = systemCats.concat(realCats.map(c => ({ id: c.category_id, name: c.category_name, system: false, count: null })));
+    // Categories masquees depuis Parametres > Categories masquees : exclues
+    // de la sidebar (mais pas de la donnee elle-meme, cf. toggleCategoryHidden).
+    const visibleRealCats = realCats.filter(c => !isCategoryHidden(browseSectionKey, c.category_id));
+    browseCategories = systemCats.concat(visibleRealCats.map(c => ({ id: c.category_id, name: c.category_name, system: false, count: null })));
     visibleCategories = browseCategories;
     renderCatListDOM();
     await selectCategory(0);

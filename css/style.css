@@ -295,6 +295,32 @@ body { background-color: var(--bg-black); color: var(--text-primary); width: 192
 .modal-actions-stacked .modal-btn span { color: var(--accent-on-surface); font-weight: 700; }
 .resume-dialog-countdown { margin-top: 6px; margin-bottom: 0; color: var(--text-faint); font-size: 13px; text-align: center; }
 
+/* ------------------------------------------------------------- */
+/* Modale Parametres v2 : sidebar de sections + panneau de contenu
+   (cf. js/modals.js pour la navigation). */
+/* ------------------------------------------------------------- */
+.settings-modal-box { width: 980px; max-height: 760px; display: flex; flex-direction: column; }
+.settings-hint { color: var(--text-faint); font-size: 13px; margin-top: -14px; margin-bottom: 20px; }
+.settings-layout { display: flex; gap: 28px; flex: 1; min-height: 0; }
+.settings-sidebar { width: 250px; flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; padding-right: 28px; border-right: 1px solid var(--border-subtle); }
+.settings-nav-item { padding: 14px 16px; border-radius: 8px; color: var(--text-secondary); font-weight: 700; border: 2px solid transparent; }
+.settings-nav-item.active { color: var(--accent-on-surface); }
+.settings-nav-item.focused { border-color: var(--accent); background: var(--overlay-soft); color: var(--text-primary); }
+.settings-content { flex: 1; min-width: 0; overflow-y: auto; }
+.settings-panel { display: none; flex-direction: column; gap: 10px; }
+.settings-panel.active { display: flex; }
+.settings-cycle-row { display: flex; align-items: center; justify-content: space-between; text-align: left; }
+.settings-cycle-value { color: var(--accent-on-surface); font-weight: 700; }
+.settings-subtitle-preview { margin-top: 10px; padding: 50px 20px; border-radius: 10px; background: #1a1a1a repeating-linear-gradient(45deg, rgba(255,255,255,0.03) 0 10px, transparent 10px 20px); text-align: center; }
+#settings-subtitle-preview-text { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 22px; }
+.settings-category-list { display: flex; flex-direction: column; gap: 4px; max-height: 380px; overflow-y: auto; margin-top: 4px; }
+.settings-cat-row { display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-radius: 8px; border: 2px solid transparent; color: var(--text-secondary); font-weight: 600; }
+.settings-cat-row.focused { border-color: var(--accent); background: var(--overlay-soft); color: var(--text-primary); }
+.settings-cat-checkbox { width: 20px; height: 20px; border-radius: 5px; border: 2px solid var(--accent); background: var(--accent); flex-shrink: 0; }
+.settings-cat-row.is-hidden .settings-cat-checkbox { background: transparent; border-color: var(--text-faint); }
+.settings-cat-row.is-hidden .settings-cat-name { text-decoration: line-through; color: var(--text-faint); }
+.settings-cat-empty { color: var(--text-muted); padding: 10px 16px; }
+
 /* Toast applicatif global */
 .app-toast { display: none; position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%); background: rgba(10,10,10,0.92); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); color: #fff; padding: 16px 28px; border-radius: 12px; font-size: 16px; z-index: 50; }
 

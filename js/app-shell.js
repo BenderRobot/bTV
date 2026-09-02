@@ -112,6 +112,53 @@ function toggleAppTheme() {
 applyStoredTheme();
 
 // ---------------------------------------------------------------
+// Taille du texte (Parametres > Taille du texte) : applique un zoom CSS a
+// toute l'app (hors lecteur video, cf. plus bas) puisque l'integralite du
+// CSS existant utilise des tailles en px et non des unites relatives —
+// reecrire chaque regle en rem serait un chantier a part entiere. zoom
+// scale donc aussi la mise en page, pas seulement le texte, mais reste la
+// seule option realiste sans ce chantier. Declare ici (et non dans data.js,
+// charge plus tard) car applique des le demarrage de ce tout premier
+// fichier applicatif.
+// ---------------------------------------------------------------
+const TEXT_SIZE_KEY = 'iptv_text_size';
+const TEXT_SIZE_OPTIONS = [
+    { label: 'Petite', zoom: 0.85 },
+    { label: 'Normale', zoom: 1 },
+    { label: 'Grande', zoom: 1.15 },
+    { label: 'Très grande', zoom: 1.3 }
+];
+
+function getTextSizeIndex() {
+    try {
+        const idx = parseInt(localStorage.getItem(TEXT_SIZE_KEY), 10);
+        return Number.isInteger(idx) && TEXT_SIZE_OPTIONS[idx] ? idx : 1;
+    } catch (e) {
+        return 1;
+    }
+}
+
+function saveTextSizeIndex(idx) {
+    try { localStorage.setItem(TEXT_SIZE_KEY, String(idx)); } catch (e) {}
+}
+
+function applyTextSize(idx) {
+    const option = TEXT_SIZE_OPTIONS[idx] || TEXT_SIZE_OPTIONS[1];
+    document.body.style.zoom = option.zoom;
+    // Contre-zoom sur le lecteur (vue plein ecran + mini-lecteur, cf.
+    // player.js) : "hors lecteur video" doit rester vrai, sinon la video et
+    // son OSD (dimensionnes en vw/vh/100%) deborderaient de l'ecran reel a
+    // un zoom different de 1.
+    const inverse = 1 / option.zoom;
+    const playerViewEl = document.getElementById('player-view');
+    if (playerViewEl) playerViewEl.style.zoom = inverse;
+    const miniPlayerEl = document.getElementById('mini-player');
+    if (miniPlayerEl) miniPlayerEl.style.zoom = inverse;
+}
+
+applyTextSize(getTextSizeIndex());
+
+// ---------------------------------------------------------------
 // Home Dashboard
 // ---------------------------------------------------------------
 const HOME_BUTTONS = ['favorites', 'live', 'movies', 'series', 'replay'];

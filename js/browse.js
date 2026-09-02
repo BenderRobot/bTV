@@ -94,10 +94,16 @@ async function renderSidebarCategories() {
 
     const systemCats = [];
     if (browseSectionKey === 'movies' || browseSectionKey === 'series') {
+        // "Recemment consultes" faisait doublon avec "Continuer a regarder"
+        // (tout contenu entame apparaissait dans les deux) : un seul suffit
+        // pour Films/Series. Le Direct n'a pas de progression trackee sur un
+        // flux live, donc pas de "Continuer a regarder" — il garde son seul
+        // historique possible.
         systemCats.push({ id: '__continue__', name: 'Continuer à regarder', system: true, count: getContinueWatchingList(browseSectionKey).length });
+    } else {
+        systemCats.push({ id: '__recent__', name: 'Récemment consultés', system: true, count: getGroupedRecentList(browseSectionKey).length });
     }
     systemCats.push(
-        { id: '__recent__', name: 'Récemment consultés', system: true, count: getGroupedRecentList(browseSectionKey).length },
         { id: '__favorites__', name: 'Favoris', system: true, count: getFavoritesList(browseSectionKey).length },
         // Ignore le regroupement par categories du panel : utile si un
         // contenu (ex. une version VO) est mal categorise ou non rattache
@@ -585,11 +591,34 @@ function renderSynopsisMeta({ rating, rating5, year, genre, duration, country, a
     document.getElementById('synopsis-meta').innerHTML = parts.join('');
 }
 
+// Affichage immediat, sans reseau : texte simple issu directement des
+// donnees Xtream (jamais de photo, l'API IPTV n'en fournit pas). Remplace
+// par loadSynopsisCastPhotos si TMDB trouve une correspondance.
 function renderSynopsisCast(director, cast) {
-    const parts = [];
-    if (director) parts.push(`Réalisateur : ${director}`);
-    if (cast) parts.push(`Cast : ${cast}`);
-    document.getElementById('synopsis-cast').innerText = parts.join('   •   ');
+    document.getElementById('synopsis-director').innerText = director ? `Réalisateur : ${director}` : '';
+    const photosEl = document.getElementById('synopsis-cast-photos');
+    photosEl.classList.remove('has-photos');
+    photosEl.innerText = cast ? `Cast : ${cast}` : '';
+}
+
+// Tente d'enrichir la ligne de cast avec de vraies photos via TMDB (cf.
+// fetchTmdbCast) : le panel IPTV ne fournit que des noms en texte. myToken
+// (capture par l'appelant via synopsisToken) evite d'afficher un resultat
+// perime si l'utilisateur a deja survole un autre poster entre-temps.
+async function loadSynopsisCastPhotos(myToken, mediaType, title, year, hasCastText) {
+    if (!hasCastText || !title) return;
+    const people = await fetchTmdbCast(mediaType, title, year);
+    if (myToken !== synopsisToken) return; // selection plus recente entre-temps
+    if (!people || !people.length) return; // pas de correspondance : on garde le texte simple
+
+    const photosEl = document.getElementById('synopsis-cast-photos');
+    photosEl.classList.add('has-photos');
+    photosEl.innerHTML = people.map(p => `
+        <div class="cast-person">
+            ${p.photo ? `<img src="${escapeHtml(p.photo)}" loading="lazy" decoding="async" onerror="this.parentElement.classList.add('no-photo')">` : ''}
+            <span>${escapeHtml(p.name)}</span>
+        </div>
+    `).join('');
 }
 
 function clearSynopsisPanel() {
@@ -597,7 +626,9 @@ function clearSynopsisPanel() {
     document.getElementById('synopsis-title').innerText = '—';
     document.getElementById('synopsis-meta').innerHTML = '';
     document.getElementById('synopsis-text').innerText = '';
-    document.getElementById('synopsis-cast').innerText = '';
+    document.getElementById('synopsis-director').innerText = '';
+    document.getElementById('synopsis-cast-photos').innerText = '';
+    document.getElementById('synopsis-cast-photos').classList.remove('has-photos');
     setBackdrop(null);
     updateSynopsisFavButton(null);
     updateSynopsisWatchedButton(null);
@@ -675,21 +706,25 @@ async function updateSynopsisPanel(item) {
     document.getElementById('synopsis-title').innerText = item.name;
     document.getElementById('synopsis-meta').innerHTML = '';
     document.getElementById('synopsis-text').innerText = '';
-    document.getElementById('synopsis-cast').innerText = '';
+    document.getElementById('synopsis-director').innerText = '';
+    document.getElementById('synopsis-cast-photos').innerText = '';
+    document.getElementById('synopsis-cast-photos').classList.remove('has-photos');
     setBackdrop(item.logo);
     updateSynopsisFavButton(item);
     updateSynopsisWatchedButton(item);
 
     if (item.kind === 'series' || item.plot) {
+        const year = (item.releaseDate || '').toString().slice(0, 4);
         renderSynopsisMeta({
             rating: item.rating,
             rating5: item.rating5,
-            year: (item.releaseDate || '').toString().slice(0, 4),
+            year,
             genre: item.genre,
             duration: item.episodeRunTime ? `${item.episodeRunTime} min/ép.` : ''
         });
         document.getElementById('synopsis-text').innerText = item.plot || '';
         renderSynopsisCast(item.director, item.cast);
+        if (item.kind === 'series') loadSynopsisCastPhotos(myToken, 'tv', item.name, year, !!item.cast);
         return;
     }
 
@@ -717,10 +752,11 @@ async function updateSynopsisPanel(item) {
     const info = await loadVodInfo(item);
     if (myToken !== synopsisToken) return; // selection plus recente entre-temps
     if (!info) return;
+    const year = (info.releasedate || info.release_date || '').toString().slice(0, 4);
     renderSynopsisMeta({
         rating: info.rating || item.rating,
         rating5: info.rating_5based || item.rating5,
-        year: (info.releasedate || info.release_date || '').toString().slice(0, 4),
+        year,
         genre: info.genre,
         duration: info.duration || (info.duration_secs ? formatTime(info.duration_secs) : ''),
         country: info.country,
@@ -728,6 +764,7 @@ async function updateSynopsisPanel(item) {
     });
     document.getElementById('synopsis-text').innerText = info.plot || info.description || '';
     renderSynopsisCast(info.director, info.cast);
+    loadSynopsisCastPhotos(myToken, 'movie', item.name, year, !!info.cast);
 }
 
 // Ouvre la liste des saisons d'une serie (une "affiche" par saison, avec son
@@ -761,24 +798,59 @@ async function openSeriesSeasons(item) {
     showRail(seasonItems);
 }
 
-// Ouvre les episodes d'une saison donnee (donnees deja en cache depuis openSeriesSeasons)
-async function openSeasonEpisodes(season) {
-    const data = await loadSeriesInfo(season.seriesId);
-    const episodesOfSeason = (data.episodes || {})[season.seasonNum] || [];
+// Construit les items episodes d'une saison a partir des donnees brutes de
+// get_series_info (cf. loadSeriesInfo). Partage par openSeasonEpisodes
+// (navigation normale saison -> episodes) et buildSeasonZapList (recharge la
+// saison pour le tiroir du player quand un episode est lance hors de ce
+// contexte, ex. depuis "Continuer a regarder").
+function mapSeasonEpisodes(episodesRaw, { seriesId, seasonNum, seriesName, logo }) {
     const cfg = sectionConfig.series;
     const { serverUrl, username, password, allowedFormats } = window.iptvServerConfig;
-
-    const episodes = episodesOfSeason.map(ep => {
+    return episodesRaw.map(ep => {
         const ext = resolveExtension(ep, cfg, allowedFormats);
         return {
             kind: 'stream',
             name: ep.title || `Épisode ${ep.episode_num}`,
             url: `${serverUrl}/series/${username}/${password}/${ep.id}.${ext}`,
-            logo: season.logo || season.seriesLogo,
-            badge: `S${season.seasonNum}E${ep.episode_num}`,
-            seriesId: season.seriesId,
-            seriesName: season.seriesName
+            logo,
+            badge: `S${seasonNum}E${ep.episode_num}`,
+            seriesId,
+            seasonNum,
+            seriesName
         };
+    });
+}
+
+// Reconstruit la liste des episodes de la saison d'un episode donne (a
+// partir de son seriesId/seasonNum, cf. mapSeasonEpisodes) : utilise pour le
+// tiroir "episode suivant" du player quand cet episode est lance hors du
+// contexte normal saison -> episodes (ex. "Continuer a regarder", qui
+// melange des contenus de series differentes) — sans ça, "episode suivant"
+// proposait une autre serie entamee au hasard plutot que la suite logique.
+// null si l'item n'est pas un episode identifiable (film, chaine live,
+// ou entree sauvegardee avant l'ajout de seasonNum).
+async function buildSeasonZapList(item) {
+    if (!item || !item.seriesId || item.seasonNum === undefined || item.seasonNum === null) return null;
+    const data = await loadSeriesInfo(item.seriesId);
+    const episodesOfSeason = (data.episodes || {})[item.seasonNum] || [];
+    if (!episodesOfSeason.length) return null;
+    return mapSeasonEpisodes(episodesOfSeason, {
+        seriesId: item.seriesId,
+        seasonNum: item.seasonNum,
+        seriesName: item.seriesName,
+        logo: item.logo
+    });
+}
+
+// Ouvre les episodes d'une saison donnee (donnees deja en cache depuis openSeriesSeasons)
+async function openSeasonEpisodes(season) {
+    const data = await loadSeriesInfo(season.seriesId);
+    const episodesOfSeason = (data.episodes || {})[season.seasonNum] || [];
+    const episodes = mapSeasonEpisodes(episodesOfSeason, {
+        seriesId: season.seriesId,
+        seasonNum: season.seasonNum,
+        seriesName: season.seriesName,
+        logo: season.logo || season.seriesLogo
     });
 
     railStack.push({ title: document.getElementById('rail-title').innerText, list: railBaseList, favoritable: railFavoritable, isRecentList: railIsRecentList });
@@ -805,6 +877,24 @@ function playRailItem(item) {
     zapList = railList.filter(it => it.url).map(it => ({ ...it }));
     zapIndex = zapList.findIndex(it => it.url === item.url);
     playItemWithResume(item, document.getElementById('rail-title').innerText);
+
+    // Un episode lance hors du contexte normal saison -> episodes (ex.
+    // "Continuer a regarder", qui melange des contenus de series
+    // differentes) doit proposer la suite de SA saison dans le tiroir
+    // "episode suivant" du player, pas les autres series entamees (railList
+    // ci-dessus, garde comme repli immediat). Recharge en arriere-plan pour
+    // ne pas retarder le lancement de la lecture.
+    if (item.seriesId && item.seasonNum !== undefined && item.seasonNum !== null) {
+        buildSeasonZapList(item).then(seasonList => {
+            if (!seasonList) return;
+            // Le contexte a pu changer entre-temps (zap vers un autre
+            // contenu pendant le chargement) : ne remplace le tiroir que si
+            // CET episode est toujours celui en cours de lecture.
+            if (!currentPlayItem || currentPlayItem.url !== item.url) return;
+            zapList = seasonList;
+            zapIndex = zapList.findIndex(it => it.url === item.url);
+        });
+    }
 }
 
 // Joue un contenu en reprenant la position memorisee (film ou episode

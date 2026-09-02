@@ -277,6 +277,58 @@ async function loadVodInfo(item) {
     }
 }
 
+// ---------------------------------------------------------------
+// TMDB (The Movie Database) : l'API Xtream ne fournit les acteurs qu'en
+// texte brut (jamais de photo). Enrichissement purement cosmetique du
+// synopsis (cf. loadSynopsisCastPhotos) : en cas d'echec (reseau, pas de
+// correspondance, quota depasse...), l'app retombe silencieusement sur le
+// texte deja affiche, rien ne bloque jamais dessus.
+// ---------------------------------------------------------------
+// Jeton personnel TMDB (lecture seule, gratuit, revocable sur
+// themoviedb.org/settings/api) : une app 100% cote client comme celle-ci,
+// sans serveur ni etape de build, n'a pas d'autre endroit ou le garder qu'en
+// clair dans le code embarque dans le paquet .wgt.
+const TMDB_BEARER_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4ZjBiMDE5NTU2MjNmNjMyMDhkY2FmZWRjZDBmOWQ1ZCIsIm5iZiI6MTc4ODM2NTQ5Ni40LCJzdWIiOiI2YTk4NGFiODhmMzdjZjlkNmZiZDYwYTQiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.bpuXWvdRn1-qbKMavJJM7bzTq3DIDxpT1dya1VuDZSI';
+const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w185';
+const TMDB_CAST_LIMIT = 8;
+const tmdbCastCache = {};
+
+// mediaType : 'movie' | 'tv'. Recherche par titre (+annee si connue, pour
+// desambiguiser un remake/une serie homonyme), puis recupere le casting du
+// premier resultat. Renvoie null si aucune correspondance (garde le texte
+// simple deja affiche) plutot que de forcer un affichage vide.
+async function fetchTmdbCast(mediaType, title, year) {
+    const cacheKey = `${mediaType}_${title}_${year || ''}`;
+    if (cacheKey in tmdbCastCache) return tmdbCastCache[cacheKey];
+    try {
+        const searchParams = new URLSearchParams({ query: title, language: 'fr-FR' });
+        if (year) searchParams.set(mediaType === 'tv' ? 'first_air_date_year' : 'year', year);
+        const searchRes = await fetch(`https://api.themoviedb.org/3/search/${mediaType}?${searchParams}`, {
+            headers: { Authorization: `Bearer ${TMDB_BEARER_TOKEN}`, accept: 'application/json' }
+        });
+        const searchData = await searchRes.json();
+        const match = (searchData.results || [])[0];
+        if (!match) {
+            cacheSet(tmdbCastCache, cacheKey, null, 300);
+            return null;
+        }
+
+        const creditsRes = await fetch(`https://api.themoviedb.org/3/${mediaType}/${match.id}/credits`, {
+            headers: { Authorization: `Bearer ${TMDB_BEARER_TOKEN}`, accept: 'application/json' }
+        });
+        const creditsData = await creditsRes.json();
+        const cast = (creditsData.cast || []).slice(0, TMDB_CAST_LIMIT).map(p => ({
+            name: p.name,
+            photo: p.profile_path ? `${TMDB_IMAGE_BASE}${p.profile_path}` : null
+        }));
+        cacheSet(tmdbCastCache, cacheKey, cast, 300);
+        return cast;
+    } catch (e) {
+        console.error('Erreur TMDB:', e);
+        return null;
+    }
+}
+
 // Mini-guide TV : programme(s) d'une chaine live. Ne recupere l'EPG que
 // pour la chaine survolee (comme loadVodInfo pour les films), jamais pour
 // tout un rail a la fois — evite le meme risque de gel que "Tout afficher"

@@ -19,22 +19,16 @@ let hlsInstance = null;
 // standard pour ça — impossible a cibler via .style sur <video> lui-meme,
 // on injecte/actualise donc une regle dediee dans un <style> a part.
 // ---------------------------------------------------------------
-const SUBTITLE_BASE_FONT_SIZE = 26;
-
 function applySubtitleStylePrefs() {
     const prefs = getSubtitlePrefs();
     const font = SUBTITLE_FONT_OPTIONS[prefs.fontIndex] || SUBTITLE_FONT_OPTIONS[0];
     const color = (SUBTITLE_COLOR_OPTIONS[prefs.colorIndex] || SUBTITLE_COLOR_OPTIONS[0]).value;
     const bg = (SUBTITLE_BG_OPTIONS[prefs.bgIndex] || SUBTITLE_BG_OPTIONS[0]).value;
-    // #player-view est delibirement exclu du zoom "Taille du texte" (cf.
-    // applyTextSize dans app-shell.js) pour ne jamais deformer la video —
-    // ce qui annule aussi, par ricochet, cet effet sur les sous-titres
-    // (le contre-zoom du lecteur les neutralise). On applique donc ici le
-    // meme facteur directement en pixels, pour que "Taille du texte"
-    // affecte quand meme la lisibilite des sous-titres sans toucher a la
-    // taille de la video elle-meme.
-    const textSizeZoom = (TEXT_SIZE_OPTIONS[getTextSizeIndex()] || TEXT_SIZE_OPTIONS[1]).zoom;
-    const fontSize = Math.round(SUBTITLE_BASE_FONT_SIZE * textSizeZoom);
+    // Reglage independant de "Taille du texte" (qui exclut deliberement le
+    // lecteur, cf. applyTextSize dans app-shell.js, pour ne jamais deformer
+    // la video) : la taille des sous-titres se regle directement ici,
+    // cf. SUBTITLE_SIZE_OPTIONS.
+    const fontSize = (SUBTITLE_SIZE_OPTIONS[prefs.sizeIndex] || SUBTITLE_SIZE_OPTIONS[1]).px;
 
     // #avplay-subtitle-overlay reste pleine largeur (necessaire pour centrer
     // le texte quelle que soit sa longueur), mais le style s'applique via

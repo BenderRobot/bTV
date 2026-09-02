@@ -228,7 +228,7 @@
             <div class="settings-layout">
                 <div class="settings-sidebar" id="settings-sidebar">
                     <div class="settings-nav-item focused" data-panel="server">Serveur</div>
-                    <div class="settings-nav-item" data-action="theme">Thème</div>
+                    <div class="settings-nav-item" data-panel="theme">Thème</div>
                     <div class="settings-nav-item" data-panel="subtitles">Sous-titres</div>
                     <div class="settings-nav-item" data-panel="categories">Catégories masquées</div>
                     <div class="settings-nav-item" data-panel="textsize">Taille du texte</div>
@@ -246,6 +246,13 @@
                         <div class="settings-focusable modal-btn" data-action="server">Modifier le serveur</div>
                     </div>
 
+                    <!-- Theme -->
+                    <div class="settings-panel" id="settings-panel-theme" data-panel="theme" hidden>
+                        <div class="settings-focusable modal-btn settings-cycle-row" data-action="theme">
+                            <span>Thème sombre/clair</span><span class="settings-cycle-value" id="settings-theme-state">Sombre</span>
+                        </div>
+                    </div>
+
                     <!-- Sous-titres -->
                     <div class="settings-panel" id="settings-panel-subtitles" data-panel="subtitles" hidden>
                         <div class="settings-focusable modal-btn settings-cycle-row" data-cycle="subtitle-font">
@@ -256,6 +263,9 @@
                         </div>
                         <div class="settings-focusable modal-btn settings-cycle-row" data-cycle="subtitle-bg">
                             <span>Fond</span><span class="settings-cycle-value" id="settings-subtitle-bg-value">—</span>
+                        </div>
+                        <div class="settings-focusable modal-btn settings-cycle-row" data-cycle="subtitle-size">
+                            <span>Taille</span><span class="settings-cycle-value" id="settings-subtitle-size-value">—</span>
                         </div>
                         <div class="settings-subtitle-preview">
                             <span id="settings-subtitle-preview-text">Exemple de sous-titre</span>

@@ -39,13 +39,13 @@ function handleAccountModalKey(keyCode) {
 //
 // Deux types d'entrees de sidebar : 'panel' (a un panneau de contenu dans
 // lequel on entre, cf. settingsZone) et 'action' (declenchee directement
-// depuis la sidebar sans panneau, ex. Theme/Deconnexion — pas de reglage
-// a afficher pour une simple bascule/action immediate).
+// depuis la sidebar sans panneau, ex. Deconnexion — pas de reglage a
+// afficher pour une simple action immediate).
 // ---------------------------------------------------------------
 let settingsModalOpen = false;
 const SETTINGS_SIDEBAR_ITEMS = [
     { type: 'panel', panel: 'server' },
-    { type: 'action', action: 'theme' },
+    { type: 'panel', panel: 'theme' },
     { type: 'panel', panel: 'subtitles' },
     { type: 'panel', panel: 'categories' },
     { type: 'panel', panel: 'textsize' },
@@ -74,6 +74,7 @@ function openSettingsModal() {
     clearInterval(settingsMemoryTimer);
     settingsMemoryTimer = setInterval(updateSettingsMemoryDisplay, 2000);
     updateSettingsPerfButtonLabel();
+    updateSettingsThemeButtonLabel();
     renderSubtitlePrefsPanel();
     renderTextSizePanel();
     renderHiddenCategoriesPanel();
@@ -142,8 +143,7 @@ function enterSettingsNavItem() {
 }
 
 function runSettingsAction(action) {
-    if (action === 'theme') toggleAppTheme(); // reste ouvert, pratique pour comparer
-    else if (action === 'logout') logout();
+    if (action === 'logout') logout();
 }
 
 function activateSettingsFocusable(el) {
@@ -158,6 +158,7 @@ function activateSettingsFocusable(el) {
     }
     const action = el.getAttribute('data-action');
     if (action === 'server') editServer();
+    else if (action === 'theme') toggleAppTheme(); // reste ouvert, pratique pour comparer
     else if (action === 'perf') togglePerfHud();
     else if (action === 'debug') toggleDebugLog();
 }
@@ -191,9 +192,11 @@ function cycleSettingsValue(cycleKey, direction) {
         saveTextSizeIndex(idx);
         applyTextSize(idx);
         renderTextSizePanel();
-        // Les sous-titres compensent le contre-zoom du lecteur avec ce meme
-        // reglage (cf. applySubtitleStylePrefs) : a reappliquer si jamais
-        // un mini-lecteur tourne en arriere-plan pendant ce changement.
+    } else if (cycleKey === 'subtitle-size') {
+        const prefs = getSubtitlePrefs();
+        prefs.sizeIndex = (prefs.sizeIndex + direction + SUBTITLE_SIZE_OPTIONS.length) % SUBTITLE_SIZE_OPTIONS.length;
+        saveSubtitlePrefs(prefs);
+        renderSubtitlePrefsPanel();
         applySubtitleStylePrefs();
     }
 }
@@ -203,13 +206,16 @@ function renderSubtitlePrefsPanel() {
     const font = SUBTITLE_FONT_OPTIONS[prefs.fontIndex];
     const color = SUBTITLE_COLOR_OPTIONS[prefs.colorIndex];
     const bg = SUBTITLE_BG_OPTIONS[prefs.bgIndex];
+    const size = SUBTITLE_SIZE_OPTIONS[prefs.sizeIndex];
     document.getElementById('settings-subtitle-font-value').innerText = font;
     document.getElementById('settings-subtitle-color-value').innerText = color.label;
     document.getElementById('settings-subtitle-bg-value').innerText = bg.label;
+    document.getElementById('settings-subtitle-size-value').innerText = size.label;
     const preview = document.getElementById('settings-subtitle-preview-text');
     preview.style.fontFamily = font;
     preview.style.color = color.value;
     preview.style.background = bg.value;
+    preview.style.fontSize = size.px + 'px';
 }
 
 function renderTextSizePanel() {

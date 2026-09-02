@@ -40,9 +40,18 @@ const SUBTITLE_BG_OPTIONS = [
     { label: 'Opaque', value: 'rgba(0,0,0,0.95)' },
     { label: 'Aucun', value: 'transparent' }
 ];
+// Reglage independant de "Taille du texte" (qui exclut deliberement le
+// lecteur, cf. applyTextSize) : sinon impossible d'ajuster les sous-titres
+// sans agrandir aussi tout le reste de l'interface.
+const SUBTITLE_SIZE_OPTIONS = [
+    { label: 'Petite', px: 20 },
+    { label: 'Normale', px: 26 },
+    { label: 'Grande', px: 32 },
+    { label: 'Très grande', px: 38 }
+];
 
 function getSubtitlePrefs() {
-    const defaults = { fontIndex: 0, colorIndex: 0, bgIndex: 0 };
+    const defaults = { fontIndex: 0, colorIndex: 0, bgIndex: 0, sizeIndex: 1 };
     try {
         const stored = JSON.parse(localStorage.getItem(SUBTITLE_PREFS_KEY));
         return stored ? { ...defaults, ...stored } : defaults;

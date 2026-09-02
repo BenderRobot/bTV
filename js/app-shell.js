@@ -107,6 +107,12 @@ function toggleAppTheme() {
     const isLight = document.body.classList.toggle('theme-light');
     try { localStorage.setItem(THEME_KEY, isLight ? 'light' : 'dark'); } catch (e) {}
     flashAppToast(isLight ? 'Thème clair activé' : 'Thème sombre activé');
+    updateSettingsThemeButtonLabel();
+}
+
+function updateSettingsThemeButtonLabel() {
+    const el = document.getElementById('settings-theme-state');
+    if (el) el.innerText = document.body.classList.contains('theme-light') ? 'Clair' : 'Sombre';
 }
 
 applyStoredTheme();

@@ -882,6 +882,14 @@ function openRecentSeriesGroup(group) {
     showRail(group._groupedEpisodes);
 }
 
+// Jeton dedie (plutot que verifier currentPlayItem) : quand l'episode a une
+// position a reprendre, playItemWithResume ouvre d'abord la modale
+// Reprendre/Recommencer et ne fixe currentPlayItem qu'APRES la reponse de
+// l'utilisateur (cf. confirmResumeDialog) — le fetch de la saison se termine
+// presque toujours avant que l'utilisateur ait repondu, donc verifier
+// currentPlayItem annulait systematiquement le remplacement du tiroir.
+let zapSeasonToken = 0;
+
 function playRailItem(item) {
     trackRecent(browseSectionKey, item);
     zapList = railList.filter(it => it.url).map(it => ({ ...it }));
@@ -895,12 +903,13 @@ function playRailItem(item) {
     // ci-dessus, garde comme repli immediat). Recharge en arriere-plan pour
     // ne pas retarder le lancement de la lecture.
     if (item.seriesId && item.seasonNum !== undefined && item.seasonNum !== null) {
+        const myZapToken = ++zapSeasonToken;
         buildSeasonZapList(item).then(seasonList => {
             if (!seasonList) return;
-            // Le contexte a pu changer entre-temps (zap vers un autre
-            // contenu pendant le chargement) : ne remplace le tiroir que si
-            // CET episode est toujours celui en cours de lecture.
-            if (!currentPlayItem || currentPlayItem.url !== item.url) return;
+            // Un autre contenu a pu etre lance entre-temps (nouvel appel a
+            // playRailItem) : ne remplace le tiroir que si CET episode est
+            // toujours celui vise.
+            if (myZapToken !== zapSeasonToken) return;
             zapList = seasonList;
             zapIndex = zapList.findIndex(it => it.url === item.url);
         });

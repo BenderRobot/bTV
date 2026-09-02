@@ -346,7 +346,22 @@ const tmdbCastCache = {};
 // desambiguiser un remake/une serie homonyme), puis recupere le casting du
 // premier resultat. Renvoie null si aucune correspondance (garde le texte
 // simple deja affiche) plutot que de forcer un affichage vide.
-async function fetchTmdbCast(mediaType, title, year) {
+// Les panels Xtream truffent les titres de tags entre crochets/barres
+// ("|FR| The Whisper Man", "[VOSTFR]", "(MULTI)"...) : envoyes tels quels a
+// TMDB, aucune recherche ne matchait jamais, d'ou un cast toujours en texte
+// simple malgre l'integration (cf. loadSynopsisCastPhotos).
+function cleanTitleForTmdb(name) {
+    return (name || '')
+        .replace(/\|[^|]*\|/g, ' ')
+        .replace(/\[[^\]]*\]/g, ' ')
+        .replace(/\((?:multi|vost(?:fr)?|vf|vo|4k|hdr10?|dolby ?(?:vision|atmos)?)\)/gi, ' ')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+}
+
+async function fetchTmdbCast(mediaType, rawTitle, year) {
+    const title = cleanTitleForTmdb(rawTitle);
+    if (!title) return null;
     const cacheKey = `${mediaType}_${title}_${year || ''}`;
     if (cacheKey in tmdbCastCache) return tmdbCastCache[cacheKey];
     try {

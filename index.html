@@ -183,6 +183,19 @@
         </div>
     </div>
 
+    <!-- Modale de confirmation avant de quitter la lecture (Retour, lecteur
+         a l'ecran complet) : sortir completement, ou reduire en mini-lecteur
+         pour continuer a naviguer tout en gardant la video active. -->
+    <div id="exit-player-dialog" class="modal-overlay">
+        <div class="modal-box">
+            <h3>Quitter la lecture ?</h3>
+            <div class="modal-actions">
+                <div class="modal-btn focused" id="exit-player-pip-btn" data-action="pip">Réduire (mini-lecteur)</div>
+                <div class="modal-btn" id="exit-player-exit-btn" data-action="exit">Sortir</div>
+            </div>
+        </div>
+    </div>
+
     <!-- Modale Parametres -->
     <div id="settings-modal" class="modal-overlay">
         <div class="modal-box modal-box-wide">
@@ -285,6 +298,10 @@
                     <svg viewBox="0 0 24 24" width="20" height="20"><rect x="2" y="5" width="20" height="14" rx="3" fill="none" stroke="white" stroke-width="1.8"/><text x="12" y="15.5" font-size="8" font-weight="700" fill="white" text-anchor="middle" font-family="Arial, sans-serif">CC</text></svg>
                     <span class="osd-btn-label" id="label-subtitle">Off</span>
                 </div>
+                <div class="osd-btn" id="player-btn-pip">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><rect x="12" y="11" width="7" height="6" rx="1" fill="white" stroke="none"/></svg>
+                    <span class="osd-btn-label">Réduire</span>
+                </div>
             </div>
 
             <!-- Liste des autres episodes/chaines du contexte en cours, repliee par
@@ -292,6 +309,17 @@
                  la deploie (remplace l'ancien tiroir de zapping en modal). -->
             <div class="osd-episode-list" id="osd-episode-list"></div>
         </div>
+    </div>
+
+    <!-- Mini-lecteur (PiP maison) : accueille temporairement #video-player ou
+         #av-player+sous-titres quand la lecture est reduite (cf.
+         enterMiniPlayer/expandMiniPlayerToFullscreen), pour continuer a
+         naviguer ailleurs dans l'app pendant que la video continue. Toujours
+         present dans le DOM, hors du systeme de vues .view (jamais masque
+         par un changement de vue), visible uniquement quand actif. -->
+    <div id="mini-player" class="mini-player">
+        <div id="mini-player-frame" class="mini-player-frame"></div>
+        <div class="mini-player-label" id="mini-player-label">—</div>
     </div>
 
     <!-- HUD de performances (RAM/FPS/CPU) : hors des vues pour rester visible

@@ -18,7 +18,7 @@ let hlsInstance = null;
 // l'ancien tiroir de zapping en modal).
 let playerNav = 'hidden'; // 'hidden' | 'controls'
 let osdZone = 'buttons'; // 'seek' | 'buttons' | 'episodes'
-const PLAYER_BUTTONS = ['playpause', 'next', 'audio', 'subtitle'];
+const PLAYER_BUTTONS = ['playpause', 'next', 'audio', 'subtitle', 'pip'];
 let playerFocusIndex = PLAYER_BUTTONS.indexOf('playpause');
 let playerHideTimer = null;
 // Derniere piste choisie manuellement (par libelle, cf. confirmTrackMenuSelection) :
@@ -399,6 +399,18 @@ function stopAvplayIfActive() {
 // audio/sous-titres (cf. startAvplayPlayback) ; tout le reste garde le
 // pipeline <video>+hls.js existant, deja fiable et performant.
 function playStream(url, name, categoryLabel, logo, resumeAt) {
+    // Un mini-lecteur actif doit s'effacer devant toute nouvelle lecture
+    // lancee ailleurs dans l'app (cf. retour utilisateur) : on recupere les
+    // elements de lecture dans #player-view sans les arreter, puisque le
+    // reste de cette fonction (startVideoPlayback/startAvplayPlayback) va de
+    // toute façon les reinitialiser pour le nouveau contenu juste apres.
+    if (miniPlayerActive) {
+        returnMiniPlayerElementsToPlayerView();
+        document.getElementById('mini-player').classList.remove('visible');
+        miniPlayerActive = false;
+        miniPlayerFocused = false;
+    }
+
     showView('player');
     disarmPauseWatchdog();
     resetPlaybackRetryBudget();
@@ -452,6 +464,10 @@ function playStream(url, name, categoryLabel, logo, resumeAt) {
         startVideoPlayback(url, resumeAt);
     }
 
+    requestPlayerFullscreen();
+}
+
+function requestPlayerFullscreen() {
     const playerView = document.getElementById('player-view');
     const requestFs = playerView.requestFullscreen || playerView.webkitRequestFullscreen || playerView.mozRequestFullScreen;
     if (requestFs) {
@@ -459,7 +475,33 @@ function playStream(url, name, categoryLabel, logo, resumeAt) {
     }
 }
 
-// Coupe le flux et quitte le plein écran en revenant a l'ecran de navigation
+// Coupe reellement le flux (AVPlay/hls.js/<video>) : partage par
+// stopAndExitPlayer et closeMiniPlayerAndDiscard (fermeture du mini-lecteur
+// sans repasser par la vue plein ecran).
+function releasePlaybackResources() {
+    stopAvplayIfActive();
+    if (hlsInstance) {
+        hlsInstance.destroy();
+        hlsInstance = null;
+    }
+    videoPlayerEl.pause();
+    videoPlayerEl.removeAttribute('src');
+    videoPlayerEl.load();
+}
+
+// #player-view passe en VRAI plein ecran navigateur (requestFullscreen,
+// cf. playStream) : tant qu'on y est, tout element qui n'est pas cet
+// element (ou l'un de ses descendants) — comme la modale de confirmation ou
+// le mini-lecteur, tous deux hors de #player-view — peut rester invisible/
+// inerte sur certains moteurs. On sort donc du plein ecran AVANT de leur
+// laisser la main, pas seulement en quittant completement le lecteur.
+function exitFullscreenIfActive() {
+    const exitFs = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen;
+    if (document.fullscreenElement && exitFs) {
+        Promise.resolve(exitFs.call(document)).catch(() => {});
+    }
+}
+
 function stopAndExitPlayer() {
     disarmPauseWatchdog();
     saveProgressNow();
@@ -472,21 +514,100 @@ function stopAndExitPlayer() {
     closeEpisodeList();
     osdZone = 'buttons';
     hidePlayerControls();
-    stopAvplayIfActive();
-    if (hlsInstance) {
-        hlsInstance.destroy();
-        hlsInstance = null;
-    }
-    videoPlayerEl.pause();
-    videoPlayerEl.removeAttribute('src');
-    videoPlayerEl.load();
-
-    const exitFs = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen;
-    if (document.fullscreenElement && exitFs) {
-        Promise.resolve(exitFs.call(document)).catch(() => {});
-    }
+    releasePlaybackResources();
+    exitFullscreenIfActive();
 
     showView('browse');
+}
+
+// ---------------------------------------------------------------
+// Mini-lecteur (PiP maison) : reduit la lecture dans un coin de l'ecran
+// pour continuer a naviguer dans le reste de l'app (categories, recherche)
+// pendant que la video continue, plutot que de couper le flux comme le fait
+// stopAndExitPlayer. Fonctionne en deplaçant reellement les elements de
+// lecture (<video> ou <object> AVPlay) hors de #player-view vers #mini-player
+// (persistant, hors du systeme de vues .view) : contrairement a un simple
+// display:none sur #player-view, ça garantit que la lecture continue quel
+// que soit le comportement du WebKit Tizen vis-a-vis d'une vue masquee.
+// ---------------------------------------------------------------
+let miniPlayerActive = false;
+let miniPlayerFocused = false;
+const MINI_PLAYER_RECT = { x: 1920 - 640 - 32, y: 1080 - 360 - 32, w: 640, h: 360 };
+
+function enterMiniPlayer() {
+    exitFullscreenIfActive();
+    const frame = document.getElementById('mini-player-frame');
+    frame.appendChild(videoPlayerEl);
+    frame.appendChild(document.getElementById('av-player'));
+    frame.appendChild(document.getElementById('avplay-subtitle-overlay'));
+    if (avplayActive) {
+        try { webapis.avplay.setDisplayRect(MINI_PLAYER_RECT.x, MINI_PLAYER_RECT.y, MINI_PLAYER_RECT.w, MINI_PLAYER_RECT.h); } catch (e) {}
+    }
+    hidePlayerControls();
+    closeEpisodeList();
+    if (trackMenuNav) closeTrackMenu();
+    document.getElementById('mini-player-label').innerText = document.getElementById('osd-program-name').innerText || '—';
+    document.getElementById('mini-player').classList.add('visible');
+    miniPlayerActive = true;
+    showView('browse');
+}
+
+// Remet <video>/#av-player a leur place normale dans #player-view, dans
+// l'ordre d'origine (important : ce sont des calques position:absolute,
+// l'ordre DOM determine lequel s'affiche au-dessus des overlays du lecteur).
+function returnMiniPlayerElementsToPlayerView() {
+    const playerViewEl = document.getElementById('player-view');
+    playerViewEl.insertBefore(videoPlayerEl, playerViewEl.firstChild);
+    const avEl = document.getElementById('av-player');
+    playerViewEl.insertBefore(avEl, videoPlayerEl.nextSibling);
+    playerViewEl.insertBefore(document.getElementById('avplay-subtitle-overlay'), avEl.nextSibling);
+}
+
+function expandMiniPlayerToFullscreen() {
+    returnMiniPlayerElementsToPlayerView();
+    if (avplayActive) {
+        try { webapis.avplay.setDisplayRect(0, 0, 1920, 1080); } catch (e) {}
+    }
+    document.getElementById('mini-player').classList.remove('visible');
+    miniPlayerActive = false;
+    miniPlayerFocused = false;
+    showView('player');
+    hidePlayerControls();
+    requestPlayerFullscreen();
+}
+
+// Ferme le mini-lecteur en coupant reellement le flux (ex. Retour depuis le
+// mini-lecteur focus, ou une nouvelle lecture lancee ailleurs qui doit s'y
+// substituer, cf. playStream) — a la difference d'expandMiniPlayerToFullscreen
+// qui, lui, reprend la lecture en plein ecran.
+function closeMiniPlayerAndDiscard() {
+    disarmPauseWatchdog();
+    saveProgressNow();
+    releasePlaybackResources();
+    returnMiniPlayerElementsToPlayerView();
+    document.getElementById('mini-player').classList.remove('visible');
+    miniPlayerActive = false;
+    miniPlayerFocused = false;
+    currentPlayItem = null;
+    currentPlaySection = null;
+}
+
+function setMiniPlayerFocused(focused) {
+    miniPlayerFocused = focused;
+    document.getElementById('mini-player').classList.toggle('focused', focused);
+}
+
+// Dispatch dedie pendant que le focus D-pad est sur le mini-lecteur (cf.
+// l'ecouteur keydown global dans input.js) : OK l'agrandit, Retour l'arrete
+// completement, toute autre touche en ressort vers la zone d'origine.
+function handleMiniPlayerKey(keyCode) {
+    if (keyCode === 13) {
+        expandMiniPlayerToFullscreen();
+    } else if (keyCode === 10009 || keyCode === 8) {
+        closeMiniPlayerAndDiscard();
+    } else {
+        setMiniPlayerFocused(false);
+    }
 }
 
 // ---------------------------------------------------------------
@@ -530,6 +651,7 @@ function activatePlayerButton(action) {
         case 'next': playNextInZapList(); break;
         case 'audio': openTrackMenu('audio'); break;
         case 'subtitle': openTrackMenu('subtitle'); break;
+        case 'pip': enterMiniPlayer(); break;
     }
 }
 

@@ -22,6 +22,14 @@ window.addEventListener('keydown', function (e) {
         handleResumeDialogKey(e.keyCode);
         return;
     }
+    if (exitPlayerDialogOpen) {
+        handleExitPlayerDialogKey(e.keyCode);
+        return;
+    }
+    if (miniPlayerFocused) {
+        handleMiniPlayerKey(e.keyCode);
+        return;
+    }
     switch (e.keyCode) {
         case 38: handleUp(); break;
         case 40: handleDown(); break;
@@ -125,6 +133,11 @@ function handleDown() {
         if (homeZone === 'header') {
             homeZone = 'menu';
             updateHomeFocus();
+        } else if (homeZone === 'menu' && miniPlayerActive) {
+            // Bas n'a normalement aucun effet depuis la rangee de menus
+            // (rien en dessous) : sert de point d'acces au mini-lecteur
+            // reduit (cf. enterMiniPlayer), affiche en bas a droite.
+            setMiniPlayerFocused(true);
         }
     } else if (currentView === 'browse') {
         if (browseFocusZone === 'sidebar' && browseCatIndex < visibleCategories.length - 1) {
@@ -146,6 +159,10 @@ function handleDown() {
             // Direct : liste verticale, Bas descend dans la liste de chaines.
             railIndex++;
             updateRailSelectionUI();
+        } else if (browseFocusZone === 'rail' && miniPlayerActive) {
+            // Rien d'autre en dessous du rail (affiches) ou en bas de la
+            // liste de chaines : point d'acces au mini-lecteur reduit.
+            setMiniPlayerFocused(true);
         }
     } else if (currentView === 'player') {
         if (trackMenuNav) {
@@ -393,7 +410,10 @@ function handleBack() {
         } else if (playerNav === 'controls') {
             hidePlayerControls();
         } else {
-            stopAndExitPlayer();
+            // Controles deja masques : demande confirmation (sortir ou
+            // reduire en mini-lecteur) plutot que de couper directement le
+            // flux, cf. retour utilisateur.
+            openExitPlayerDialog();
         }
         return;
     }

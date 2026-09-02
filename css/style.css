@@ -461,3 +461,13 @@ body.theme-light .account-expiry {
 .debug-log-panel .debug-log-line.error { color: #ff6b6b; }
 .debug-log-panel .debug-log-line.warn { color: #ffcc4d; }
 .debug-log-panel .debug-log-line.ok { color: #6bdc7c; }
+
+/* Mini-lecteur (PiP maison, cf. enterMiniPlayer dans player.js) : accueille
+   #video-player ou #av-player quand la lecture est reduite pour continuer a
+   naviguer ailleurs. Toujours dans le DOM, visible uniquement quand actif. */
+.mini-player { display: none; position: fixed; right: 32px; bottom: 32px; width: 640px; height: 360px; border-radius: 14px; overflow: hidden; background: #000; box-shadow: 0 10px 30px rgba(0,0,0,0.6); border: 3px solid transparent; z-index: 60; transition: border-color 0.15s ease, transform 0.15s ease; }
+.mini-player.visible { display: block; }
+.mini-player.focused { border-color: var(--accent); transform: scale(1.04); }
+.mini-player-frame { width: 100%; height: 100%; position: relative; }
+.mini-player-frame video, .mini-player-frame object { width: 100%; height: 100%; position: absolute; top: 0; left: 0; object-fit: contain; }
+.mini-player-label { position: absolute; left: 0; right: 0; bottom: 0; padding: 6px 10px; background: rgba(0,0,0,0.75); color: #fff; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

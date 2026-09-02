@@ -325,6 +325,55 @@ function handleResumeDialogKey(keyCode) {
     }
 }
 
+// ---------------------------------------------------------------
+// Modale de confirmation avant de quitter la lecture (Retour, lecteur en
+// plein ecran) : sortir completement, ou reduire en mini-lecteur (cf.
+// enterMiniPlayer dans player.js) pour continuer a naviguer ailleurs.
+// ---------------------------------------------------------------
+let exitPlayerDialogOpen = false;
+let exitPlayerDialogFocusIndex = 0; // 0 = Reduire (PiP), 1 = Sortir
+
+function openExitPlayerDialog() {
+    // #player-view est en VRAI plein ecran (requestFullscreen, cf.
+    // playStream) : cette modale est un element FRERE de #player-view, pas
+    // un descendant — sur certains moteurs, tout ce qui n'est pas dans
+    // l'element mis en plein ecran reste invisible/inerte tant qu'on n'en
+    // est pas sorti. On sort donc du plein ecran avant de l'afficher.
+    exitFullscreenIfActive();
+    exitPlayerDialogOpen = true;
+    exitPlayerDialogFocusIndex = 0;
+    updateExitPlayerDialogFocus();
+    document.getElementById('exit-player-dialog').classList.add('visible');
+}
+
+function closeExitPlayerDialog() {
+    exitPlayerDialogOpen = false;
+    document.getElementById('exit-player-dialog').classList.remove('visible');
+}
+
+function updateExitPlayerDialogFocus() {
+    document.getElementById('exit-player-pip-btn').classList.toggle('focused', exitPlayerDialogFocusIndex === 0);
+    document.getElementById('exit-player-exit-btn').classList.toggle('focused', exitPlayerDialogFocusIndex === 1);
+}
+
+function handleExitPlayerDialogKey(keyCode) {
+    if (keyCode === 37 || keyCode === 39 || keyCode === 38 || keyCode === 40) {
+        exitPlayerDialogFocusIndex = exitPlayerDialogFocusIndex === 0 ? 1 : 0;
+        updateExitPlayerDialogFocus();
+    } else if (keyCode === 13) {
+        closeExitPlayerDialog();
+        if (exitPlayerDialogFocusIndex === 0) enterMiniPlayer();
+        else stopAndExitPlayer();
+    } else if (keyCode === 10009 || keyCode === 8) {
+        // Retour : annule, reste sur la lecture. On avait quitte le vrai
+        // plein ecran pour afficher cette modale (cf. openExitPlayerDialog) :
+        // on y retourne puisque la lecture continue.
+        closeExitPlayerDialog();
+        showPlayerControls();
+        requestPlayerFullscreen();
+    }
+}
+
 function handleSettingsModalKey(keyCode) {
     const btns = document.querySelectorAll('#settings-modal .modal-btn');
     if (keyCode === 38 || keyCode === 37) {

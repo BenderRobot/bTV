@@ -589,6 +589,37 @@ function seekBy(seconds) {
     videoPlayerEl.currentTime = Math.max(0, Math.min(videoPlayerEl.duration, videoPlayerEl.currentTime + seconds));
 }
 
+// Avance/recul depuis la barre de progression (osdZone 'seek', cf.
+// handleLeft/handleRight) : rester appuye envoie des keydown repetes
+// (auto-repeat de la telecommande/du navigateur) — sans acceleration,
+// chacun ne vaut que le pas fixe de seekBy (10s), ce qui rend le rembobinage
+// d'un long film tres lent. On agrandit le pas a chaque repetition tant que
+// les appuis restent rapproches ; un relachement (keyup, cf. l'ecouteur
+// dans input.js) ou une pause plus longue que SEEK_HOLD_RESET_MS remet a zero.
+const SEEK_HOLD_RESET_MS = 700;
+const SEEK_HOLD_STEPS_S = [10, 10, 20, 30, 60, 90, 120];
+let seekHoldStreak = 0;
+let seekHoldDirection = 0;
+let seekHoldLastAt = 0;
+
+// direction : -1 (recul) ou 1 (avance)
+function seekHeld(direction) {
+    const now = Date.now();
+    if (direction !== seekHoldDirection || (now - seekHoldLastAt) > SEEK_HOLD_RESET_MS) {
+        seekHoldStreak = 0;
+        seekHoldDirection = direction;
+    }
+    seekHoldLastAt = now;
+    const amount = SEEK_HOLD_STEPS_S[Math.min(seekHoldStreak, SEEK_HOLD_STEPS_S.length - 1)];
+    seekHoldStreak++;
+    seekBy(direction * amount);
+}
+
+function resetSeekHold() {
+    seekHoldStreak = 0;
+    seekHoldDirection = 0;
+}
+
 // Elements references une seule fois : updateProgressUI tourne en continu
 // pendant toute la lecture (plusieurs fois par seconde), un getElementById
 // repete par appel est un cout inutile sur tout la duree du visionnage.

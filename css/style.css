@@ -158,6 +158,11 @@ body { background-color: var(--bg-black); color: var(--text-primary); width: 192
 .synopsis-fav-btn.focused { border-color: var(--accent); background: rgba(255,255,255,0.18); color: #fff; transform: scale(1.06); }
 .synopsis-fav-btn.is-fav { color: var(--accent-bright); }
 .synopsis-fav-btn.is-fav .synopsis-fav-icon { fill: var(--accent-bright); color: var(--accent-bright); }
+/* Bouton "Marquer comme vu" (films/episodes uniquement, affiche/masque via
+   JS selon isItemWatchable) : meme pastille que le favori, coche au lieu
+   d'etoile. */
+.synopsis-watched-btn.is-watched { color: var(--accent-bright); }
+.synopsis-watched-btn.is-watched .synopsis-fav-icon { color: var(--accent-bright); }
 /* Bouton de suppression de l'historique ("Recemment consultes" uniquement,
    affiche/masque via JS comme synopsis-fav-btn, cf. railIsRecentList) :
    teinte rouge pour signaler une action destructive plutot qu'un simple

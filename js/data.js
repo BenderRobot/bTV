@@ -448,6 +448,23 @@ function isItemWatched(sectionKey, item) {
     return !!(p && p.done);
 }
 
+// Marquage manuel vu/non vu (independant de la position reelle de lecture,
+// contrairement a saveProgress) : renvoie le nouvel etat. Marquer comme non
+// vu supprime completement l'entree plutot que de la garder a position 0,
+// pour ne pas la faire ressortir dans "Continuer a regarder".
+function toggleWatched(sectionKey, item) {
+    if (!item || !item.url) return false;
+    const map = getProgressMap(sectionKey);
+    const wasWatched = !!(map[item.url] && map[item.url].done);
+    if (wasWatched) {
+        delete map[item.url];
+    } else {
+        map[item.url] = { ...item, position: 0, duration: (map[item.url] && map[item.url].duration) || 0, done: true, updatedAt: Date.now() };
+    }
+    saveProgressMap(sectionKey, map);
+    return !wasWatched;
+}
+
 // Enregistre la position de lecture. Un contenu regarde au-dela de
 // PROGRESS_DONE_RATIO est marque termine (repart de 0 la prochaine fois,
 // sans proposer de reprise) ; en dessous de PROGRESS_MIN_SECONDS, on

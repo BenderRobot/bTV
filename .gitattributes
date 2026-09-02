@@ -1,0 +1,5 @@
+# Normalise les fins de ligne a l'ajout/au commit (LF en interne) et laisse
+# Git les reconvertir en CRLF sur Windows a la sortie (checkout) : supprime
+# les avertissements "LF will be replaced by CRLF" a chaque commit, sans
+# changer le contenu des fichiers ni le comportement de l'app.
+* text=auto

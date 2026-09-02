@@ -32,7 +32,7 @@ let railPreviewFullList = null;
 // Requete de contenu de categorie actuellement en vol (cf. selectCategory) :
 // permet de l'annuler si l'utilisateur change de categorie avant sa reponse.
 let categoryFetchAbortController = null;
-let favSubFocus = 'star'; // 'star' | 'remove' : sous-focus de la zone 'fav' (etoile vs suppression de l'historique)
+let favSubFocus = 'star'; // 'star' | 'watched' | 'remove' : sous-focus de la zone 'fav' (cf. getFavZoneOptions)
 let synopsisToken = 0;
 let searchSubFocus = 'input'; // 'input' | 'clear' : sous-focus de la barre de recherche du contenu
 
@@ -600,6 +600,7 @@ function clearSynopsisPanel() {
     document.getElementById('synopsis-cast').innerText = '';
     setBackdrop(null);
     updateSynopsisFavButton(null);
+    updateSynopsisWatchedButton(null);
 }
 
 // Reflete l'etat favori de l'item affiche sur le bouton etoile du synopsis
@@ -616,9 +617,50 @@ function updateSynopsisFavButton(item) {
     label.innerText = isFav ? 'Dans mes favoris' : 'Ajouter aux favoris';
 }
 
+// "Vu" ne s'applique qu'a un contenu individuellement lisible (un film, un
+// episode) : pas a une fiche serie/saison (qui ne represente rien de
+// regardable en soi) ni a une chaine live (regarder du direct n'a pas de
+// fin a "terminer").
+function isItemWatchable(item) {
+    if (!item || !item.url) return false;
+    if (item.kind === 'series' || item.kind === 'season' || item.kind === 'recentSeriesGroup') return false;
+    const sectionKey = item._section || browseSectionKey;
+    return sectionKey === 'movies' || sectionKey === 'series';
+}
+
+// Reflete l'etat vu/non-vu de l'item affiche sur le bouton du synopsis
+function updateSynopsisWatchedButton(item) {
+    const btn = document.getElementById('synopsis-watched-btn');
+    const label = document.getElementById('synopsis-watched-label');
+    if (!isItemWatchable(item)) {
+        btn.style.display = 'none';
+        return;
+    }
+    btn.style.display = '';
+    const watched = isItemWatched(item._section || browseSectionKey, item);
+    btn.classList.toggle('is-watched', watched);
+    label.innerText = watched ? 'Vu' : 'Marquer comme vu';
+}
+
+// Options de sous-focus disponibles dans la zone 'fav' pour l'item
+// actuellement en surbrillance dans le rail, dans l'ordre de navigation
+// Gauche/Droite (cf. handleUp/Down/Left/Right/Enter) : etoile (favori,
+// seulement si la liste entiere est favorisable), vu (seulement pour un
+// contenu individuellement lisible, cf. isItemWatchable — peut s'appliquer
+// meme quand l'etoile ne s'applique pas, ex. un episode), suppression
+// (seulement dans "Recemment consultes").
+function getFavZoneOptions() {
+    const opts = [];
+    if (railFavoritable) opts.push('star');
+    if (isItemWatchable(railList[railIndex])) opts.push('watched');
+    if (railIsRecentList) opts.push('remove');
+    return opts;
+}
+
 function updateFavButtonFocus() {
     const inFav = browseFocusZone === 'fav';
     document.getElementById('synopsis-fav-btn').classList.toggle('focused', inFav && favSubFocus === 'star');
+    document.getElementById('synopsis-watched-btn').classList.toggle('focused', inFav && favSubFocus === 'watched');
     document.getElementById('synopsis-remove-btn').classList.toggle('focused', inFav && favSubFocus === 'remove');
     document.getElementById('live-epg-remove-btn').classList.toggle('focused', inFav && favSubFocus === 'remove');
     updateLiveEpgFavButtonFocus();
@@ -636,6 +678,7 @@ async function updateSynopsisPanel(item) {
     document.getElementById('synopsis-cast').innerText = '';
     setBackdrop(item.logo);
     updateSynopsisFavButton(item);
+    updateSynopsisWatchedButton(item);
 
     if (item.kind === 'series' || item.plot) {
         renderSynopsisMeta({
@@ -795,6 +838,17 @@ function toggleFavoriteOnFocusedRailItem() {
     updateSynopsisFavButton(item);
     updateLiveEpgFavButton(item);
     flashAppToast(added ? 'Ajouté aux favoris' : 'Retiré des favoris');
+}
+
+function toggleWatchedOnFocusedRailItem() {
+    const item = railList[railIndex];
+    if (!isItemWatchable(item)) return;
+    const sectionKey = item._section || browseSectionKey;
+    const nowWatched = toggleWatched(sectionKey, item);
+    const posters = document.querySelectorAll('.rail-poster');
+    if (posters[railIndex]) posters[railIndex].classList.toggle('is-watched', nowWatched);
+    updateSynopsisWatchedButton(item);
+    flashAppToast(nowWatched ? 'Marqué comme vu' : 'Marqué comme non vu');
 }
 
 // Retire l'item survole de "Recemment consultes" (fiche serie regroupee ou

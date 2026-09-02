@@ -32,6 +32,14 @@ window.addEventListener('keydown', function (e) {
     }
 });
 
+// Relachement de Gauche/Droite : remet a zero l'acceleration de l'avance/
+// retour (cf. seekHeld dans player.js) des que la touche n'est plus tenue,
+// plutot que d'attendre qu'un eventuel appui suivant soit juge "trop tard"
+// pour hériter par erreur d'un pas deja agrandi.
+window.addEventListener('keyup', function (e) {
+    if (e.keyCode === 37 || e.keyCode === 39) resetSeekHold();
+});
+
 // Le clavier virtuel Samsung se declenche via input.focus() (cf. handleEnter
 // sur les zones de recherche) et le focus DOM y reste tant qu'on ne le
 // libere pas explicitement : sans ce blur(), les touches directionnelles
@@ -68,12 +76,14 @@ function handleUp() {
             // Direct : rien au-dessus de la liste — les boutons fav/suppression
             // sont a DROITE (panneau EPG), pas en haut (cf. handleRight).
         } else if (browseFocusZone === 'rail') {
-            // Les episodes/saisons ne sont pas favorisables individuellement
-            // (seule la fiche serie l'est) : le bouton etoile est masque,
-            // on saute donc directement vers la recherche.
-            browseFocusZone = railFavoritable ? 'fav' : 'search';
-            favSubFocus = 'star';
-            if (!railFavoritable) searchSubFocus = 'input';
+            // Un episode reste marquable comme "vu" meme quand il n'est pas
+            // favorisable individuellement (cf. getFavZoneOptions) : on ne
+            // saute directement vers la recherche que si AUCUNE option
+            // (etoile/vu/suppression) ne s'applique a l'item survole.
+            const favOpts = getFavZoneOptions();
+            browseFocusZone = favOpts.length ? 'fav' : 'search';
+            favSubFocus = favOpts[0] || 'star';
+            if (!favOpts.length) searchSubFocus = 'input';
             updateRailFocus();
             updateFavButtonFocus();
             updateSearchZoneFocus();
@@ -120,8 +130,9 @@ function handleDown() {
         if (browseFocusZone === 'sidebar' && browseCatIndex < visibleCategories.length - 1) {
             focusSidebarCategory(browseCatIndex + 1);
         } else if (browseFocusZone === 'search') {
-            browseFocusZone = railFavoritable ? 'fav' : 'rail';
-            favSubFocus = 'star';
+            const favOpts = getFavZoneOptions();
+            browseFocusZone = favOpts.length ? 'fav' : 'rail';
+            favSubFocus = favOpts[0] || 'star';
             updateSearchZoneFocus();
             updateFavButtonFocus();
             updateRailFocus();
@@ -177,8 +188,10 @@ function handleLeft() {
                 updateSynopsisPanel(railList[railIndex]);
             }
         } else if (browseFocusZone === 'fav') {
-            if (favSubFocus === 'remove') {
-                favSubFocus = 'star';
+            const favOpts = getFavZoneOptions();
+            const favIdx = favOpts.indexOf(favSubFocus);
+            if (favIdx > 0) {
+                favSubFocus = favOpts[favIdx - 1];
                 updateFavButtonFocus();
             } else if (browseSectionKey === 'live') {
                 // Direct : les boutons sont a droite de la liste, Gauche y revient.
@@ -213,7 +226,7 @@ function handleLeft() {
             osdZone = 'buttons';
             updatePlayerButtonFocus();
         } else if (osdZone === 'seek') {
-            seekBy(-10);
+            seekHeld(-1);
             resetPlayerHideTimer();
         } else {
             playerFocusIndex = (playerFocusIndex - 1 + PLAYER_BUTTONS.length) % PLAYER_BUTTONS.length;
@@ -255,9 +268,11 @@ async function handleRight() {
         } else if (browseFocusZone === 'rail' && browseSectionKey === 'live') {
             // Direct : les boutons fav/suppression sont a droite de la liste
             // de chaines (panneau EPG), donc Droite y donne acces directement.
-            browseFocusZone = railFavoritable ? 'fav' : 'search';
-            favSubFocus = 'star';
-            if (!railFavoritable) searchSubFocus = 'input';
+            // (Jamais d'option "vu" pour une chaine live, cf. isItemWatchable.)
+            const favOpts = getFavZoneOptions();
+            browseFocusZone = favOpts.length ? 'fav' : 'search';
+            favSubFocus = favOpts[0] || 'star';
+            if (!favOpts.length) searchSubFocus = 'input';
             updateRailFocus();
             updateChannelListFocus();
             updateFavButtonFocus();
@@ -266,9 +281,13 @@ async function handleRight() {
             railIndex++;
             updateRailFocus();
             updateSynopsisPanel(railList[railIndex]);
-        } else if (browseFocusZone === 'fav' && railIsRecentList && favSubFocus === 'star') {
-            favSubFocus = 'remove';
-            updateFavButtonFocus();
+        } else if (browseFocusZone === 'fav') {
+            const favOpts = getFavZoneOptions();
+            const favIdx = favOpts.indexOf(favSubFocus);
+            if (favIdx !== -1 && favIdx < favOpts.length - 1) {
+                favSubFocus = favOpts[favIdx + 1];
+                updateFavButtonFocus();
+            }
         } else if (browseFocusZone === 'search' && searchSubFocus === 'input') {
             searchSubFocus = 'clear';
             updateSearchZoneFocus();
@@ -281,7 +300,7 @@ async function handleRight() {
         } else if (osdZone === 'episodes') {
             // Rien a droite d'une liste verticale.
         } else if (osdZone === 'seek') {
-            seekBy(10);
+            seekHeld(1);
             resetPlayerHideTimer();
         } else {
             playerFocusIndex = (playerFocusIndex + 1) % PLAYER_BUTTONS.length;
@@ -316,6 +335,7 @@ function handleEnter() {
             else document.getElementById('browse-search').focus(); // Ouvre le clavier virtuel Samsung (dictee vocale native incluse)
         } else if (browseFocusZone === 'fav') {
             if (favSubFocus === 'remove') removeFocusedFromRecent();
+            else if (favSubFocus === 'watched') toggleWatchedOnFocusedRailItem();
             else toggleFavoriteOnFocusedRailItem();
         } else {
             const item = railList[railIndex];

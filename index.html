@@ -112,6 +112,12 @@
                                 <i data-lucide="star" class="synopsis-fav-icon"></i>
                                 <span id="synopsis-fav-label">Ajouter aux favoris</span>
                             </div>
+                            <!-- Visible uniquement pour un contenu individuellement lisible
+                                 (film ou episode, pas une fiche serie/saison) : cf. isItemWatchable -->
+                            <div class="synopsis-fav-btn synopsis-watched-btn" id="synopsis-watched-btn">
+                                <i data-lucide="check" class="synopsis-fav-icon"></i>
+                                <span id="synopsis-watched-label">Marquer comme vu</span>
+                            </div>
                             <!-- Visible uniquement dans "Recemment consultes" (cf. railIsRecentList) -->
                             <div class="synopsis-fav-btn synopsis-remove-btn" id="synopsis-remove-btn">
                                 <i data-lucide="trash-2" class="synopsis-fav-icon"></i>

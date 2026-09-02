@@ -10,6 +10,10 @@
 .EXAMPLE
     .\tizen-deploy.ps1 -TvIp 192.168.1.50
     Connecte la TV via sdb avant de builder, installer et pusher.
+
+.EXAMPLE
+    .\tizen-deploy.ps1 -NoPush
+    Deploie sur la TV sans toucher a Git (comme -SkipBuild/-SkipInstall/-SkipRun pour les autres etapes).
 #>
 
 [CmdletBinding()]
@@ -22,6 +26,7 @@ param(
     [switch]$SkipBuild,
     [switch]$SkipInstall,
     [switch]$SkipRun,
+    [switch]$NoPush,
     [switch]$ListDevices
 )
 
@@ -231,7 +236,11 @@ if (-not $SkipRun) {
     if ($LASTEXITCODE -ne 0) { throw "Echec du lancement (code $LASTEXITCODE)" }
 }
 
-# --- Étape finale : Push Git systématique ---
-Auto-PushGit
+# --- Étape finale : Push Git (sautée avec -NoPush) ---
+if (-not $NoPush) {
+    Auto-PushGit
+} else {
+    Write-Host "`nPush Git ignore (-NoPush)." -ForegroundColor Yellow
+}
 
 Write-Host "`nTermine." -ForegroundColor Green

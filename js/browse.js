@@ -790,17 +790,28 @@ async function openSeriesSeasons(item) {
 
     const seasonItems = Object.keys(episodesBySeason).sort((a, b) => a - b).map(num => {
         const meta = seasonMetaByNum[num] || {};
+        const logo = meta.cover || meta.cover_big || item.logo;
+        // Une fiche saison n'a pas d'URL propre (isItemWatched ne peut donc
+        // pas la verifier directement, cf. getProgress) : on precalcule ici
+        // si TOUS ses episodes sont vus, a partir des memes items que ceux
+        // reellement lus (cf. mapSeasonEpisodes) — isItemWatched se base
+        // ensuite sur ce champ pour les fiches de type 'season'.
+        const seasonEpisodes = mapSeasonEpisodes(episodesBySeason[num], {
+            seriesId: item.id, seasonNum: num, seriesName: item.name, logo
+        });
+        const allWatched = seasonEpisodes.length > 0 && seasonEpisodes.every(ep => isItemWatched('series', ep));
         return {
             kind: 'season',
             seasonNum: num,
             name: meta.name || `Saison ${num}`,
-            logo: meta.cover || meta.cover_big || item.logo,
+            logo,
             badge: `${episodesBySeason[num].length} ép.`,
             plot: meta.overview || '',
             releaseDate: meta.air_date,
             seriesId: item.id,
             seriesName: item.name,
-            seriesLogo: item.logo
+            seriesLogo: item.logo,
+            _allEpisodesWatched: allWatched
         };
     });
 

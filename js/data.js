@@ -628,6 +628,10 @@ function getProgress(sectionKey, item) {
 }
 
 function isItemWatched(sectionKey, item) {
+    // Une fiche saison n'a pas d'URL propre (getProgress ne peut donc rien
+    // trouver pour elle) : son statut "vu" vient d'un precalcul fait au
+    // moment de construire la liste des saisons, cf. openSeriesSeasons.
+    if (item && item.kind === 'season') return !!item._allEpisodesWatched;
     const p = getProgress(sectionKey, item);
     return !!(p && p.done);
 }

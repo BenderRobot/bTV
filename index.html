@@ -192,6 +192,21 @@
         </div>
     </div>
 
+    <!-- Modale proposee a la fin du dernier episode d'une saison, si une
+         saison suivante existe : passe automatiquement a la suite ("Oui")
+         au bout de 15s sans reponse, comme un "episode suivant" classique. -->
+    <div id="next-season-dialog" class="modal-overlay">
+        <div class="modal-box">
+            <h3 id="next-season-dialog-title">—</h3>
+            <div class="modal-row">Passer à la saison suivante ?</div>
+            <div class="modal-actions">
+                <div class="modal-btn focused" id="next-season-dialog-yes" data-action="yes">Oui</div>
+                <div class="modal-btn" id="next-season-dialog-no" data-action="no">Non</div>
+            </div>
+            <div class="modal-row resume-dialog-countdown" id="next-season-dialog-countdown"></div>
+        </div>
+    </div>
+
     <!-- Modale de confirmation avant de quitter la lecture (Retour, lecteur
          a l'ecran complet) : sortir completement, ou reduire en mini-lecteur
          pour continuer a naviguer tout en gardant la video active. -->

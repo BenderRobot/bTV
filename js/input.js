@@ -22,6 +22,10 @@ window.addEventListener('keydown', function (e) {
         handleResumeDialogKey(e.keyCode);
         return;
     }
+    if (nextSeasonDialogOpen) {
+        handleNextSeasonDialogKey(e.keyCode);
+        return;
+    }
     if (exitPlayerDialogOpen) {
         handleExitPlayerDialogKey(e.keyCode);
         return;

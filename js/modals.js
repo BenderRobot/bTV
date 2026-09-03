@@ -546,6 +546,103 @@ function handleResumeDialogKey(keyCode) {
 }
 
 // ---------------------------------------------------------------
+// Modale "Saison suivante ?" : proposee a la fin du dernier episode d'une
+// saison (cf. handlePlaybackEnded dans player.js) si une saison suivante
+// existe pour cette serie. Passe automatiquement a la suite au bout de 15s
+// sans reponse (comme un "episode suivant" classique de streaming) — a la
+// difference de resume-dialog, qui defaut plutot vers l'option prudente
+// (recommencer) : ici, "continuer le visionnage" est le cas d'usage
+// attendu, pas une action a risque.
+// ---------------------------------------------------------------
+let nextSeasonDialogOpen = false;
+let nextSeasonDialogFocusIndex = 0; // 0 = Oui, 1 = Non
+let nextSeasonDialogCountdownTimer = null;
+let nextSeasonDialogPending = null; // { item, nextSeasonNum, seriesData }
+const NEXT_SEASON_DIALOG_TIMEOUT_S = 15;
+
+function openNextSeasonDialog(item, nextSeasonNum, seriesData) {
+    // #player-view est en vrai plein ecran (requestFullscreen, cf.
+    // playStream) : cette modale est un element frere, pas un descendant —
+    // meme correctif que openExitPlayerDialog, sinon elle resterait
+    // invisible/inerte sur certains moteurs tant qu'on n'en sort pas.
+    exitFullscreenIfActive();
+    nextSeasonDialogPending = { item, nextSeasonNum, seriesData };
+    nextSeasonDialogOpen = true;
+    nextSeasonDialogFocusIndex = 0;
+    document.getElementById('next-season-dialog-title').innerText = `${item.seriesName || ''} — Saison ${nextSeasonNum}`;
+    updateNextSeasonDialogFocus();
+    document.getElementById('next-season-dialog').classList.add('visible');
+    startNextSeasonDialogCountdown();
+}
+
+function updateNextSeasonDialogFocus() {
+    document.getElementById('next-season-dialog-yes').classList.toggle('focused', nextSeasonDialogFocusIndex === 0);
+    document.getElementById('next-season-dialog-no').classList.toggle('focused', nextSeasonDialogFocusIndex === 1);
+}
+
+function startNextSeasonDialogCountdown() {
+    let remaining = NEXT_SEASON_DIALOG_TIMEOUT_S;
+    const el = document.getElementById('next-season-dialog-countdown');
+    const render = () => { el.innerText = `Saison suivante dans ${remaining}s...`; };
+    render();
+    clearInterval(nextSeasonDialogCountdownTimer);
+    nextSeasonDialogCountdownTimer = setInterval(function () {
+        remaining--;
+        if (remaining <= 0) {
+            clearInterval(nextSeasonDialogCountdownTimer);
+            confirmNextSeasonDialog('yes');
+            return;
+        }
+        render();
+    }, 1000);
+}
+
+function closeNextSeasonDialog() {
+    nextSeasonDialogOpen = false;
+    clearInterval(nextSeasonDialogCountdownTimer);
+    nextSeasonDialogCountdownTimer = null;
+    document.getElementById('next-season-dialog').classList.remove('visible');
+}
+
+function confirmNextSeasonDialog(choice) {
+    const pending = nextSeasonDialogPending;
+    nextSeasonDialogPending = null;
+    closeNextSeasonDialog();
+    if (!pending) return;
+    if (choice !== 'yes') {
+        stopAndExitPlayer(); // "revenir sur les categories", cf. retour utilisateur
+        return;
+    }
+    const { item, nextSeasonNum, seriesData } = pending;
+    const episodes = mapSeasonEpisodes((seriesData.episodes || {})[nextSeasonNum] || [], {
+        seriesId: item.seriesId,
+        seasonNum: nextSeasonNum,
+        seriesName: item.seriesName,
+        logo: item.logo
+    });
+    if (!episodes.length) {
+        stopAndExitPlayer();
+        return;
+    }
+    zapList = episodes;
+    zapIndex = 0;
+    trackRecent(browseSectionKey, episodes[0]);
+    playItemWithResume(episodes[0], item.seriesName || '');
+}
+
+function handleNextSeasonDialogKey(keyCode) {
+    if (keyCode === 37 || keyCode === 39 || keyCode === 38 || keyCode === 40) {
+        nextSeasonDialogFocusIndex = nextSeasonDialogFocusIndex === 0 ? 1 : 0;
+        updateNextSeasonDialogFocus();
+    } else if (keyCode === 13) {
+        confirmNextSeasonDialog(nextSeasonDialogFocusIndex === 0 ? 'yes' : 'no');
+    } else if (keyCode === 10009 || keyCode === 8) {
+        // Retour : comme "Non", revient aux categories.
+        confirmNextSeasonDialog('no');
+    }
+}
+
+// ---------------------------------------------------------------
 // Modale de confirmation avant de quitter la lecture (Retour, lecteur en
 // plein ecran) : sortir completement, ou reduire en mini-lecteur (cf.
 // enterMiniPlayer dans player.js) pour continuer a naviguer ailleurs.

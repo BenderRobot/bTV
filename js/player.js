@@ -235,7 +235,46 @@ function showFatalPlaybackError(errorLabel) {
 function handlePlaybackEnded() {
     if (currentPlayItem && currentPlayItem.seriesId && zapIndex >= 0 && zapIndex < zapList.length - 1) {
         playNextInZapList();
+        return;
     }
+    // Dernier episode de la liste en cours (fin de saison) : avant, rien ne
+    // se passait ici — la lecture restait figee sur la derniere image sans
+    // aucune action, cf. retour utilisateur. On verifie desormais s'il
+    // existe une saison suivante pour proposer d'enchainer, et sinon on
+    // revient directement a la navigation.
+    if (currentPlayItem && currentPlayItem.seriesId) {
+        checkNextSeasonOrExit();
+    }
+}
+
+// Determine s'il existe une saison suivante pour la serie en cours (a
+// partir de currentPlayItem.seasonNum) et propose de l'enchainer (cf.
+// openNextSeasonDialog dans modals.js) ; sinon revient directement a la
+// navigation (stopAndExitPlayer). Les numeros de saison ne sont pas
+// forcement contigus (specials en saison 0, etc.) : on se base sur l'ORDRE
+// trie des saisons connues du panel, pas sur un simple "+1".
+let nextSeasonCheckToken = 0;
+async function checkNextSeasonOrExit() {
+    const item = currentPlayItem;
+    const myToken = ++nextSeasonCheckToken;
+    if (!item || !item.seriesId || item.seasonNum === undefined || item.seasonNum === null) {
+        stopAndExitPlayer();
+        return;
+    }
+    const seriesData = await loadSeriesInfo(item.seriesId);
+    // Le contexte a pu changer entre-temps (l'utilisateur a deja quitte ou
+    // zappe ailleurs pendant ce fetch) : ne pas imposer une modale perimee.
+    if (myToken !== nextSeasonCheckToken || !currentPlayItem || currentPlayItem.url !== item.url) return;
+
+    const seasonNums = Object.keys(seriesData.episodes || {}).map(Number).sort((a, b) => a - b);
+    const currentIdx = seasonNums.indexOf(Number(item.seasonNum));
+    const nextSeasonNum = (currentIdx !== -1 && currentIdx < seasonNums.length - 1) ? seasonNums[currentIdx + 1] : null;
+
+    if (nextSeasonNum === null) {
+        stopAndExitPlayer();
+        return;
+    }
+    openNextSeasonDialog(item, nextSeasonNum, seriesData);
 }
 
 // Sauvegarde throttlee (toutes les ~10s) : evite d'ecrire dans le

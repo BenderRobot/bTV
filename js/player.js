@@ -73,7 +73,7 @@ function formatSubtitleText(raw) {
 // l'ancien tiroir de zapping en modal).
 let playerNav = 'hidden'; // 'hidden' | 'controls'
 let osdZone = 'buttons'; // 'seek' | 'buttons' | 'episodes'
-const PLAYER_BUTTONS = ['playpause', 'next', 'audio', 'subtitle', 'pip'];
+const PLAYER_BUTTONS = ['rewind', 'playpause', 'forward', 'next', 'audio', 'subtitle', 'pip'];
 let playerFocusIndex = PLAYER_BUTTONS.indexOf('playpause');
 let playerHideTimer = null;
 // Derniere piste choisie manuellement (par libelle, cf. confirmTrackMenuSelection) :
@@ -752,7 +752,9 @@ function updatePlayerButtonFocus() {
 
 function activatePlayerButton(action) {
     switch (action) {
+        case 'rewind': seekBy(-10); break;
         case 'playpause': togglePlayPause(); break;
+        case 'forward': seekBy(10); break;
         case 'next': playNextInZapList(); break;
         case 'audio': openTrackMenu('audio'); break;
         case 'subtitle': openTrackMenu('subtitle'); break;

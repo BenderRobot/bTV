@@ -260,7 +260,14 @@ function handleLeft() {
             closeTrackMenu();
             showPlayerControls();
         } else if (playerNav === 'hidden') {
+            // Gauche/Droite depuis les commandes masquees recule/avance
+            // directement (cf. retour utilisateur), plutot que de se
+            // contenter d'afficher les commandes sur la rangee de boutons —
+            // osdZone='seek' AVANT showPlayerControls() pour que la barre de
+            // progression apparaisse deja en surbrillance (retour visuel).
+            osdZone = 'seek';
             showPlayerControls();
+            seekHeld(-1);
         } else if (osdZone === 'episodes') {
             closeEpisodeList();
             osdZone = 'buttons';
@@ -336,7 +343,11 @@ async function handleRight() {
         if (trackMenuNav) {
             // Menu centre : rien a faire a droite.
         } else if (playerNav === 'hidden') {
+            // Cf. handleLeft : avance directement plutot que de se contenter
+            // d'afficher les commandes.
+            osdZone = 'seek';
             showPlayerControls();
+            seekHeld(1);
         } else if (osdZone === 'episodes') {
             // Rien a droite d'une liste verticale.
         } else if (osdZone === 'seek') {

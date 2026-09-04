@@ -44,9 +44,24 @@ window.addEventListener('keydown', function (e) {
         case 37: handleLeft(); break;
         case 39: handleRight(); break;
         case 13: handleEnter(); break;
-        case 10009: case 8: handleBack(); break;
+        case 10009: handleBack(); break;
+        // 8 (Backspace) sert d'alias "Retour" pratique en test navigateur
+        // (pas de touche 10009 sur un clavier PC) — mais le clavier virtuel
+        // Samsung emet ce meme code pour sa touche d'effacement quand un
+        // champ de recherche est focus. Sans cette exception, une
+        // suppression de caractere etait interceptee ICI EN PREMIER et
+        // fermait juste le clavier (blur, cf. handleBack) au lieu d'effacer
+        // la lettre, empechant toute correction d'une recherche deja tapee.
+        case 8:
+            if (!isBrowseSearchInputFocused()) handleBack();
+            break;
     }
 });
+
+function isBrowseSearchInputFocused() {
+    const active = document.activeElement;
+    return !!(active && (active.id === 'browse-search' || active.id === 'browse-cat-search'));
+}
 
 // Relachement de Gauche/Droite : remet a zero l'acceleration de l'avance/
 // retour (cf. seekHeld dans player.js) des que la touche n'est plus tenue,

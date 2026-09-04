@@ -1031,8 +1031,14 @@ function applyContentSearchFilter(e) {
 // Filtre la liste des categories dans la sidebar (nom uniquement). Le
 // chargement effectif du contenu ne se declenche qu'apres un court delai
 // pour eviter une requete reseau a chaque frappe.
+// Ecoute aussi "change" et "blur" (pas seulement "input") pour la meme
+// raison que la recherche de contenu (cf. applyContentSearchFilter un peu
+// plus haut) : la fermeture du clavier virtuel Samsung (touche "Terminer",
+// dictee vocale) ne declenche pas toujours un evenement "input" classique —
+// sans ça, le texte affiche a ce moment-la restait ignore du filtrage,
+// comme si la recherche deja tapee n'etait plus prise en compte.
 let catSearchDebounceTimer = null;
-document.getElementById('browse-cat-search').addEventListener('input', function (e) {
+function applyCategorySearchFilter(e) {
     const q = e.target.value.trim().toLowerCase();
     visibleCategories = q ? browseCategories.filter(c => c.name.toLowerCase().includes(q)) : browseCategories;
     browseCatIndex = 0;
@@ -1048,6 +1054,9 @@ document.getElementById('browse-cat-search').addEventListener('input', function 
             clearSynopsisPanel();
         }
     }, 300);
+}
+['input', 'change', 'blur'].forEach(evt => {
+    document.getElementById('browse-cat-search').addEventListener(evt, applyCategorySearchFilter);
 });
 
 // La dictee vocale passe par le clavier virtuel Samsung lui-meme (bouton

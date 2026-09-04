@@ -198,30 +198,40 @@ function hidePlayerLoadingSpinner() {
 // reinitialise a chaque nouvelle lecture et des qu'une lecture saine
 // redemarre, pour ne pas penaliser un contenu qui vient de replanter bien
 // plus tard dans le visionnage.
+// Le direct beneficie d'un budget bien plus genereux que la VOD/series : une
+// coupure serveur/reseau sur une chaine live (cf. retour utilisateur) peut
+// durer bien plus longtemps que les ~4s couverts par 2 tentatives rapprochees
+// — sans ça, l'appli abandonnait et affichait une erreur definitive avant
+// meme que le flux ait eu le temps de revenir, obligeant a sortir et
+// rerelancer la chaine a la main. Une VOD/un episode reellement indisponible,
+// en revanche, doit encore echouer vite (pas d'interet a insister dessus).
 let playbackRetryCount = 0;
 const MAX_PLAYBACK_RETRIES = 2;
 const PLAYBACK_RETRY_DELAY_MS = 2000;
+const MAX_LIVE_PLAYBACK_RETRIES = 15;
+const LIVE_PLAYBACK_RETRY_DELAY_MS = 4000; // 15 x 4s ≈ 1 minute de reconnexion silencieuse avant abandon
 
 function resetPlaybackRetryBudget() {
     playbackRetryCount = 0;
 }
 
 function retryOrFailPlayback(errorLabel) {
-    if (!currentPlayItem || !currentPlayItem.url || playbackRetryCount >= MAX_PLAYBACK_RETRIES) {
+    const isLive = !!(currentPlayItem && currentPlayItem.url && currentPlayItem.url.includes('/live/'));
+    const maxRetries = isLive ? MAX_LIVE_PLAYBACK_RETRIES : MAX_PLAYBACK_RETRIES;
+    if (!currentPlayItem || !currentPlayItem.url || playbackRetryCount >= maxRetries) {
         showFatalPlaybackError(errorLabel);
         return;
     }
     playbackRetryCount++;
-    showPlayerLoadingSpinner(`Reconnexion (${playbackRetryCount}/${MAX_PLAYBACK_RETRIES})...`);
+    showPlayerLoadingSpinner(`Reconnexion (${playbackRetryCount}/${maxRetries})...`);
     const { cur } = getPlaybackTimes();
     const url = currentPlayItem.url;
-    const isLive = url.includes('/live/');
     const resumeAt = isLive ? null : cur;
     const useAvplay = avplayActive;
     setTimeout(function () {
         if (useAvplay) startAvplayPlayback(url, resumeAt);
         else startVideoPlayback(url, resumeAt);
-    }, PLAYBACK_RETRY_DELAY_MS);
+    }, isLive ? LIVE_PLAYBACK_RETRY_DELAY_MS : PLAYBACK_RETRY_DELAY_MS);
 }
 
 function showFatalPlaybackError(errorLabel) {

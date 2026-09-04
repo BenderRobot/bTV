@@ -1246,5 +1246,8 @@ async function showSplashAndPreload() {
     video.load();
 
     enterHome();
+    // Fire-and-forget : ne doit jamais retarder l'affichage de l'accueil,
+    // cf. notifyNewFavoriteEpisodes (js/data.js).
+    notifyNewFavoriteEpisodes();
 }
 

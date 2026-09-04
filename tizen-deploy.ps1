@@ -86,6 +86,9 @@ function Get-OfflineSerial {
     return ($lines[0] -split "\s+")[0]
 }
 
+$GitAuthorName = "Benjamin LAURENS"
+$GitAuthorEmail = "blaurens31@gmail.com"
+
 function Auto-PushGit {
     Write-Host "`n=== Push Git Automatique (GitHub) ===" -ForegroundColor Cyan
     Push-Location $ProjectPath
@@ -119,7 +122,7 @@ function Auto-PushGit {
         git add .
 
         Write-Host "Commit : '$commitMsg'..." -ForegroundColor Cyan
-        git commit -m "$commitMsg"
+        git -c "user.name=$GitAuthorName" -c "user.email=$GitAuthorEmail" commit -m "$commitMsg"
 
         Write-Host "Push vers GitHub..." -ForegroundColor Cyan
         $currentBranch = (git rev-parse --abbrev-ref HEAD).Trim()

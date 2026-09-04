@@ -237,7 +237,14 @@ async function selectCategory(idx, previewOnly) {
         // une fois qu'on joue ou qu'on entre dans une serie (cf. handleEnter).
         setRailTitle(cat.name);
         const realSection = cat.id;
-        const list = getFavoritesList(realSection).map(it => ({ ...it, _section: realSection }));
+        const list = getFavoritesList(realSection).map(it => {
+            const withSection = { ...it, _section: realSection };
+            if (realSection === 'series') {
+                const newCount = getNewEpisodesCount(it.id);
+                if (newCount) withSection.badge = newCount === 1 ? 'NOUVEAU' : `+${newCount} NOUVEAUX`;
+            }
+            return withSection;
+        });
         showRail(list);
         return;
     }
@@ -258,7 +265,14 @@ async function selectCategory(idx, previewOnly) {
         railIsRecentList = true;
         showRail(getGroupedRecentList(browseSectionKey));
     } else if (cat.id === '__favorites__') {
-        showRail(getFavoritesList(browseSectionKey));
+        const list = getFavoritesList(browseSectionKey);
+        if (browseSectionKey === 'series') {
+            list.forEach(it => {
+                const newCount = getNewEpisodesCount(it.id);
+                if (newCount) it.badge = newCount === 1 ? 'NOUVEAU' : `+${newCount} NOUVEAUX`;
+            });
+        }
+        showRail(list);
     } else if (cat.id === '__recentadded__') {
         showRail([]);
         renderRailLoading();
@@ -783,6 +797,7 @@ async function updateSynopsisPanel(item) {
 // Ouvre la liste des saisons d'une serie (une "affiche" par saison, avec son
 // propre visuel/nombre d'episodes quand le panel les fournit).
 async function openSeriesSeasons(item) {
+    acknowledgeNewEpisodes(item.id); // l'utilisateur consulte la serie : le signalement "nouveau" n'a plus lieu d'etre
     const data = await loadSeriesInfo(item.id);
     const episodesBySeason = data.episodes || {};
     const seasonMetaByNum = {};

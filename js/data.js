@@ -361,9 +361,12 @@ async function fetchReplayPrograms(channel) {
         .filter(item => item.url);
 }
 
-// Recupere (et met en cache) le detail complet d'une serie : saisons + episodes
-async function loadSeriesInfo(seriesId) {
-    if (seriesInfoCache[seriesId]) return seriesInfoCache[seriesId];
+// Recupere (et met en cache) le detail complet d'une serie : saisons + episodes.
+// forceRefresh : ignore le cache memoire (cf. checkFavoriteSeriesForNewEpisodes,
+// qui a justement besoin d'une reponse fraiche pour detecter un episode ajoute
+// depuis la derniere consultation de cette serie).
+async function loadSeriesInfo(seriesId, forceRefresh) {
+    if (!forceRefresh && seriesInfoCache[seriesId]) return seriesInfoCache[seriesId];
     const { serverUrl, username, password } = window.iptvServerConfig;
     const url = `${serverUrl}/player_api.php?username=${username}&password=${password}&action=get_series_info&series_id=${seriesId}`;
     try {
@@ -567,6 +570,107 @@ function toggleFavorite(sectionKey, item) {
     else { list.splice(idx, 1); added = false; }
     try { localStorage.setItem(FAV_KEY_PREFIX + sectionKey, JSON.stringify(list)); } catch (e) {}
     return added;
+}
+
+// ---------------------------------------------------------------
+// Nouveaux episodes des series favorites : a chaque demarrage (et sur
+// rafraichissement manuel de la playlist), compare le nombre d'episodes de
+// chaque serie favorite a l'instantane memorise lors de la PRECEDENTE
+// verification — pas au moment de l'ajout aux favoris — pour ne signaler
+// que les episodes reellement apparus entre-temps. Une serie qui n'a pas
+// encore d'instantane (toute premiere verification, ou serie tout juste
+// ajoutee aux favoris) n'est jamais signalee : sinon, activer la fonction
+// alerterait immediatement sur tout le catalogue deja favorise.
+// ---------------------------------------------------------------
+const KNOWN_EPISODES_KEY = 'iptv_known_episodes';
+const NEW_EPISODES_KEY = 'iptv_new_episodes';
+
+function getKnownEpisodesMap() {
+    try { return JSON.parse(localStorage.getItem(KNOWN_EPISODES_KEY)) || {}; } catch (e) { return {}; }
+}
+
+function getNewEpisodesMap() {
+    try { return JSON.parse(localStorage.getItem(NEW_EPISODES_KEY)) || {}; } catch (e) { return {}; }
+}
+
+function saveNewEpisodesMap(map) {
+    try { localStorage.setItem(NEW_EPISODES_KEY, JSON.stringify(map)); } catch (e) {}
+}
+
+// Nombre de nouveaux episodes encore non acquittes pour une serie favorite
+// (0 si aucun, ou si deja acquittes via acknowledgeNewEpisodes).
+function getNewEpisodesCount(seriesId) {
+    const ids = getNewEpisodesMap()[seriesId];
+    return ids ? ids.length : 0;
+}
+
+// Appelee des que l'utilisateur ouvre la fiche saisons d'une serie (cf.
+// openSeriesSeasons) : il vient de la voir, inutile de continuer a la
+// signaler comme "nouvelle".
+function acknowledgeNewEpisodes(seriesId) {
+    const map = getNewEpisodesMap();
+    if (map[seriesId]) {
+        delete map[seriesId];
+        saveNewEpisodesMap(map);
+    }
+}
+
+// Sequentiel (pas Promise.all) : eviter une rafale de requetes simultanees
+// vers des panels IPTV bon marche deja sensibles a la charge (cf. fetchJson
+// plus haut) — un peu plus lent si beaucoup de series sont favorites, mais
+// ça tourne en arriere-plan sans bloquer l'interface (cf. appelants).
+async function checkFavoriteSeriesForNewEpisodes() {
+    const favorites = getFavoritesList('series');
+    if (!favorites.length) return [];
+
+    const knownMap = getKnownEpisodesMap();
+    const newMap = getNewEpisodesMap();
+    const newlyFound = [];
+
+    for (const fav of favorites) {
+        let info;
+        try {
+            info = await loadSeriesInfo(fav.id, true);
+        } catch (e) {
+            continue;
+        }
+        const episodeIds = Object.values(info.episodes || {}).flat().map(ep => String(ep.id));
+        if (!episodeIds.length) continue;
+
+        const known = knownMap[fav.id];
+        if (known) {
+            const newIds = episodeIds.filter(id => !known.includes(id));
+            if (newIds.length) {
+                newMap[fav.id] = newIds;
+                newlyFound.push({ id: fav.id, name: fav.name, count: newIds.length });
+            }
+        }
+        knownMap[fav.id] = episodeIds;
+    }
+
+    try { localStorage.setItem(KNOWN_EPISODES_KEY, JSON.stringify(knownMap)); } catch (e) {}
+    saveNewEpisodesMap(newMap);
+    return newlyFound;
+}
+
+// Point d'entree unique pour les appelants (splash de demarrage,
+// rafraichissement manuel de la playlist) : lance la verification et
+// affiche un toast si de nouveaux episodes sont trouves. Volontairement non
+// awaite par ses appelants (fire-and-forget) pour ne jamais retarder
+// l'affichage de l'accueil.
+async function notifyNewFavoriteEpisodes() {
+    let newlyFound;
+    try {
+        newlyFound = await checkFavoriteSeriesForNewEpisodes();
+    } catch (e) {
+        console.error('Erreur verification nouveaux episodes (favoris):', e);
+        return;
+    }
+    if (!newlyFound.length) return;
+    const names = newlyFound.map(s => s.name);
+    const shown = names.slice(0, 3).join(', ');
+    const extra = names.length > 3 ? ` et ${names.length - 3} autre(s)` : '';
+    flashAppToast(`Nouveaux épisodes disponibles : ${shown}${extra}`);
 }
 
 function getRecentList(sectionKey) {

@@ -266,5 +266,6 @@ function refreshPlaylistData() {
     Object.keys(epgCache).forEach(k => delete epgCache[k]);
     try { localStorage.removeItem(getPersistentCacheKey()); } catch (e) {}
     flashAppToast('Playlist resynchronisée');
+    notifyNewFavoriteEpisodes(); // fire-and-forget, affichera son propre toast si besoin
 }
 

@@ -133,6 +133,7 @@ function refreshStalePausedStream() {
 let avplayActive = false;
 let avplayActiveAudioIndex = -1;
 let avplayActiveSubtitleIndex = -1; // -1 = sous-titres desactives
+let avplaySubtitleClearTimer = null; // efface le cue affiche une fois sa duree ecoulee (cf. onsubtitlechange)
 
 function isAvplayAvailable() {
     return typeof webapis !== 'undefined' && !!webapis.avplay;
@@ -421,6 +422,7 @@ function startAvplayPlayback(url, resumeAt, keepPaused) {
     videoPlayerEl.style.display = 'none';
     const obj = document.getElementById('av-player');
     obj.style.display = '';
+    if (avplaySubtitleClearTimer) { clearTimeout(avplaySubtitleClearTimer); avplaySubtitleClearTimer = null; }
     document.getElementById('avplay-subtitle-overlay').innerText = '';
     avplayActiveAudioIndex = -1;
     avplayActiveSubtitleIndex = -1;
@@ -451,7 +453,16 @@ function startAvplayPlayback(url, resumeAt, keepPaused) {
             onevent: function () {},
             onsubtitlechange: function (duration, text) {
                 const overlay = document.getElementById('avplay-subtitle-overlay');
+                if (avplaySubtitleClearTimer) { clearTimeout(avplaySubtitleClearTimer); avplaySubtitleClearTimer = null; }
                 overlay.innerHTML = text ? `<span class="subtitle-chip">${formatSubtitleText(text)}</span>` : '';
+                // Certains flux (ex. pistes traduites) n'envoient jamais l'evenement de
+                // fin (text vide) : sans ce filet, le cue reste affiche indefiniment.
+                if (text && duration > 0) {
+                    avplaySubtitleClearTimer = setTimeout(() => {
+                        overlay.innerHTML = '';
+                        avplaySubtitleClearTimer = null;
+                    }, duration);
+                }
             },
             ondrmevent: function () {}
         });
@@ -496,6 +507,7 @@ function stopAvplayIfActive() {
     try { webapis.avplay.close(); } catch (e) {}
     avplayActive = false;
     document.getElementById('av-player').style.display = 'none';
+    if (avplaySubtitleClearTimer) { clearTimeout(avplaySubtitleClearTimer); avplaySubtitleClearTimer = null; }
     document.getElementById('avplay-subtitle-overlay').innerText = '';
 }
 
@@ -1037,7 +1049,10 @@ function selectSubtitleTrack(idx) {
                 webapis.avplay.setSilentSubtitle(false);
             }
             avplayActiveSubtitleIndex = idx;
-            if (idx === -1) document.getElementById('avplay-subtitle-overlay').innerText = '';
+            if (idx === -1) {
+                if (avplaySubtitleClearTimer) { clearTimeout(avplaySubtitleClearTimer); avplaySubtitleClearTimer = null; }
+                document.getElementById('avplay-subtitle-overlay').innerText = '';
+            }
         } catch (e) { console.error('AVPlay setSelectTrack TEXT:', e); }
         updateSubtitleButtonLabel();
         return;

@@ -54,7 +54,8 @@ async function connectToIPTV(options) {
     }
 
     if (!(data.user_info && data.user_info.auth === 1)) {
-        console.error('Authentification refusée:', data.user_info);
+        // Xtream user_info can contain the account's username and password.
+        console.error('Authentification IPTV refusée');
         const authError = new Error('AUTH_REFUSED');
         authError.permanent = true; // identifiants/abonnement en cause : jamais transitoire, ne pas re-tenter
         if (silent) throw authError;

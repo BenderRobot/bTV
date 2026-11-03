@@ -27,7 +27,9 @@ param(
     [switch]$SkipInstall,
     [switch]$SkipRun,
     [switch]$NoPush,
-    [switch]$ListDevices
+    [switch]$ListDevices,
+    [switch]$VerifyOnly,
+    [switch]$BuildOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -35,6 +37,20 @@ $ErrorActionPreference = "Stop"
 if (-not $ProjectPath) {
     $ProjectPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 }
+
+if ($VerifyOnly -and ($BuildOnly -or $ListDevices)) { throw 'Choisis VerifyOnly, BuildOnly ou ListDevices.' }
+function Invoke-BtvChecks {
+    Push-Location $ProjectPath
+    try {
+        & npm test
+        if ($LASTEXITCODE -ne 0) { throw 'Tests en échec : build et déploiement arrêtés.' }
+        & npm run lint
+        if ($LASTEXITCODE -ne 0) { throw 'Lint en échec : build et déploiement arrêtés. Lance npm ci si les dépendances manquent.' }
+    } finally { Pop-Location }
+}
+if ($VerifyOnly) { Invoke-BtvChecks; return }
+if (-not $SkipBuild -and -not $ListDevices) { Invoke-BtvChecks }
+if ($BuildOnly) { $SkipInstall = $true; $SkipRun = $true; $NoPush = $true }
 
 $tizenCli = Join-Path $TizenHome "tools\ide\bin\tizen.bat"
 $sdb = Join-Path $TizenHome "tools\sdb.exe"
@@ -145,6 +161,7 @@ function Auto-PushGit {
 }
 
 # --- Detection / reconnexion de la TV ---
+if (-not $BuildOnly) {
 Write-Host "Verification de la connexion a la TV..." -ForegroundColor Cyan
 
 if ($TvIp) {
@@ -204,6 +221,8 @@ if (-not $TargetSerial) {
         throw "Serial detecte suspect ('$TargetSerial'). Verifie manuellement avec '$sdb devices' et repasse avec -TargetSerial <serial>."
     }
     Write-Host "Cible auto-selectionnee : $TargetSerial" -ForegroundColor Yellow
+}
+
 }
 
 $buildResultPath = Join-Path $ProjectPath ".buildResult"

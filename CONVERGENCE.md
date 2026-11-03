@@ -6,6 +6,14 @@ reste utilisé. Ce lot prépare l'activation commune avec Android/iOS ; les prof
 la synchronisation et la télécommande ne sont pas encore portés. Aucun déploiement
 sur la TV ni publication de mise à jour n'a été fait.
 
+## Référence visuelle
+
+L'application Android TV est la référence du portage : mêmes couleurs, logo,
+typographies, cartes d'accueil, mur d'affiches, fiches de médias et organisation
+des commandes. Adapter la réalisation HTML/CSS et le focus à la télécommande
+Samsung, en conservant cette présentation. L'interface Tizen historique n'est
+pas encore entièrement alignée ; ce travail accompagne les prochains lots.
+
 ## Parcours utilisateur
 
 1. Au démarrage, la TV vérifie son activation avant de contacter le serveur IPTV.

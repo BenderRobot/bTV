@@ -7,6 +7,13 @@ on:
 permissions:
   contents: read
 jobs:
+  package-guard:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject private/development paths in WGT fixtures
+        shell: powershell
+        run: ./tools/test-wgt.ps1
   verify:
     runs-on: ubuntu-24.04
     timeout-minutes: 10

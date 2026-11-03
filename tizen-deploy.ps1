@@ -46,6 +46,7 @@ function Invoke-BtvChecks {
         if ($LASTEXITCODE -ne 0) { throw 'Tests en échec : build et déploiement arrêtés.' }
         & npm run lint
         if ($LASTEXITCODE -ne 0) { throw 'Lint en échec : build et déploiement arrêtés. Lance npm ci si les dépendances manquent.' }
+        & (Join-Path $ProjectPath 'tools/test-wgt.ps1')
     } finally { Pop-Location }
 }
 if ($VerifyOnly) { Invoke-BtvChecks; return }
@@ -231,7 +232,7 @@ if (-not $SkipBuild) {
     Write-Host "`n=== Build web ===" -ForegroundColor Cyan
     # Only runtime assets belong in the package, never development tools or
     # local deployment state. Keep the same exclusions for signed TV builds.
-    & $tizenCli build-web -e 'node_modules/*' '.git' '.github/*' 'test/*' '*.ps1' 'package*.json' 'eslint.config.js' '*.md' '.tizen-deploy-state.json' 'images/grok-video-*' 'images/ChatGPT*' -- "$ProjectPath"
+    & $tizenCli build-web -e 'node_modules/*' '.git/*' '.git' '.github/*' 'test/*' 'tools/*' '*.ps1' 'package*.json' 'eslint.config.js' '*.md' '.tizen-deploy-state.json' 'images/grok-video-*' 'images/ChatGPT*' -- "$ProjectPath"
     if ($LASTEXITCODE -ne 0) { throw "Echec du build-web (code $LASTEXITCODE)" }
 
     Write-Host "`n=== Packaging + signature (profil '$SigningProfile') ===" -ForegroundColor Cyan
@@ -246,6 +247,7 @@ if (-not $wgtFile) {
     throw "Aucun fichier .wgt trouve dans '$buildResultPath'."
 }
 Write-Host "Package genere : $($wgtFile.FullName)" -ForegroundColor Green
+& (Join-Path $ProjectPath 'tools/verify-wgt.ps1') -Path $wgtFile.FullName -ExpectedAppId (Get-TizenAppId)
 
 if (-not $SkipInstall) {
     Write-Host "`n=== Installation sur $TargetSerial ===" -ForegroundColor Cyan

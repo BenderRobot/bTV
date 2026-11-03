@@ -87,6 +87,11 @@ Aucune migration supplémentaire n'est nécessaire pour le seul parcours QR/code
 
 ## Construire et installer
 
+Le script exclut récursivement `.git/*` pour les clones complets, ainsi que les
+outils de développement. Un contrôle de l'archive signée refuse les fichiers Git,
+clés et chemins suspects avant toute installation, y compris avec `-SkipBuild`.
+Les fixtures du contrôle sont testées par `tools/test-wgt.ps1` et dans la CI Windows.
+
 Après `npm ci --ignore-scripts` :
 
 ```powershell

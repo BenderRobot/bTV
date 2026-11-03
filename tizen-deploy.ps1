@@ -166,7 +166,7 @@ Write-Host "Verification de la connexion a la TV..." -ForegroundColor Cyan
 
 if ($TvIp) {
     Write-Host "Connexion a $TvIp..." -ForegroundColor Cyan
-    & $sdb connect $TvIp | Out-Null
+    & $sdb connect $TvIp
     Start-Sleep -Seconds 2
 }
 
@@ -182,7 +182,7 @@ if (-not $readySerial) {
         Write-Host "Appareil '$offline' hors-ligne, tentative de reconnexion..." -ForegroundColor Yellow
         & $sdb disconnect $offline | Out-Null
         Start-Sleep -Seconds 1
-        & $sdb connect $offline | Out-Null
+        & $sdb connect $offline
         Start-Sleep -Seconds 2
         $readySerial = Get-ReadySerial
     }
@@ -192,7 +192,7 @@ if (-not $readySerial -and -not $TvIp) {
     $savedIp = Get-SavedTvIp
     if ($savedIp) {
         Write-Host "Aucun appareil connecte, nouvelle tentative avec la derniere IP connue ($savedIp)..." -ForegroundColor Yellow
-        & $sdb connect $savedIp | Out-Null
+        & $sdb connect $savedIp
         Start-Sleep -Seconds 2
         $readySerial = Get-ReadySerial
     }
@@ -203,7 +203,7 @@ Get-DevicesRaw | ForEach-Object { Write-Host "  $_" }
 
 if ($readySerial -match '^(\d{1,3}(\.\d{1,3}){3}):\d+$') {
     Save-TvIp $Matches[1]
-} elseif ($TvIp) {
+} elseif ($TvIp -and $readySerial) {
     Save-TvIp $TvIp
 }
 
@@ -212,7 +212,7 @@ if ($ListDevices) {
 }
 
 if (-not $readySerial -and -not $TargetSerial) {
-    throw "Aucune TV Tizen prete (etat 'device') detectee. Verifie que la TV est allumee, en mode developpeur, sur le meme reseau, puis relance avec -TvIp <ip>."
+    throw "Aucune TV Tizen prete detectee. Utilise l'IP reelle affichee dans les parametres reseau de la TV (pas une adresse d'exemple). Verifie Developer Mode, l'IP du PC dans Host PC IP, puis redemarre la TV. Le message sdb affiche plus haut donne le detail de la connexion."
 }
 
 if (-not $TargetSerial) {

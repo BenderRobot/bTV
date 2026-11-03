@@ -5,6 +5,7 @@
     <title>IPTV Tizen App</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/activation.css">
+    <link rel="stylesheet" href="css/home.css">
     <script src="js/vendor/hls-1.7.1.min.js"></script>
     <script src="js/vendor/lucide-1.38.0.min.js"></script>
     <script src="js/vendor/qrcode-generator-1.4.4.js"></script>
@@ -69,49 +70,53 @@
 
     <!-- 2. VUE HOME (Dashboard) -->
     <div id="home-view" class="view">
-        <!-- Fond anime "aurore" verte, purement decoratif -->
-        <div class="home-aurora" aria-hidden="true">
-            <div class="aurora-blob aurora-blob-1"></div>
-            <div class="aurora-blob aurora-blob-2"></div>
-            <div class="aurora-blob aurora-blob-3"></div>
-        </div>
-
         <div class="home-header">
             <div class="home-logo"><img src="icon.png" alt="bTV" class="home-logo-icon">bTV</div>
             <div class="home-account">
                 <span class="account-expiry" id="home-expiry">Expiration : —</span>
             </div>
             <div class="home-icons">
-                <div class="home-icon" id="home-icon-user" tabindex="0"><i data-lucide="user" class="header-icon-svg"></i></div>
-                <div class="home-icon" id="home-icon-refresh" tabindex="0"><i data-lucide="refresh-cw" class="header-icon-svg"></i></div>
-                <div class="home-icon" id="home-icon-settings" tabindex="0"><i data-lucide="settings" class="header-icon-svg"></i></div>
+                <div class="home-icon" id="home-icon-user" role="button" aria-label="Compte IPTV" tabindex="0"><i data-lucide="user" class="header-icon-svg"></i></div>
+                <div class="home-icon" id="home-icon-refresh" role="button" aria-label="Actualiser" tabindex="0"><i data-lucide="refresh-cw" class="header-icon-svg"></i></div>
+                <div class="home-icon" id="home-icon-settings" role="button" aria-label="Réglages" tabindex="0"><i data-lucide="settings" class="header-icon-svg"></i></div>
             </div>
         </div>
 
         <div class="home-center">
+            <h1 class="home-greeting"><span id="home-greeting">Bonjour !</span> On regarde quoi ?</h1>
             <div class="home-menu" id="home-menu">
-                <div class="home-btn" data-target="favorites">
-                    <div class="home-btn-square"><i data-lucide="star" class="home-icon-svg"></i></div>
-                    <div class="home-btn-label">Favoris</div>
-                </div>
-                <div class="home-btn" data-target="live">
-                    <div class="home-btn-square"><i data-lucide="tv" class="home-icon-svg"></i></div>
-                    <div class="home-btn-label">En Direct</div>
-                </div>
-                <div class="home-btn" data-target="movies">
-                    <div class="home-btn-square"><i data-lucide="clapperboard" class="home-icon-svg"></i></div>
-                    <div class="home-btn-label">Films</div>
-                </div>
-                <div class="home-btn" data-target="series">
-                    <div class="home-btn-square"><i data-lucide="film" class="home-icon-svg"></i></div>
-                    <div class="home-btn-label">Séries</div>
-                </div>
-                <div class="home-btn" data-target="replay">
+                <div class="home-btn" data-target="replay" role="button" tabindex="-1">
                     <div class="home-btn-square"><i data-lucide="rotate-ccw" class="home-icon-svg"></i></div>
                     <div class="home-btn-label">Rediffusion</div>
+                    <span class="home-btn-description">Programmes passés</span>
+                </div>
+                <div class="home-btn" data-target="live" role="button" tabindex="-1">
+                    <div class="home-btn-square"><i data-lucide="tv" class="home-icon-svg"></i></div>
+                    <div class="home-btn-label">En direct</div>
+                    <span class="home-btn-description">Chaînes TV en direct</span>
+                </div>
+                <div class="home-btn" data-target="favorites" role="button" tabindex="-1">
+                    <div class="home-btn-square"><i data-lucide="star" class="home-icon-svg"></i></div>
+                    <div class="home-btn-label">Favoris</div>
+                    <span class="home-btn-description">Chaînes, films, séries</span>
+                </div>
+                <div class="home-btn" data-target="series" role="button" tabindex="-1">
+                    <div class="home-btn-square"><i data-lucide="film" class="home-icon-svg"></i></div>
+                    <div class="home-btn-label">Séries</div>
+                    <span class="home-btn-description">Séries et saisons</span>
+                </div>
+                <div class="home-btn" data-target="movies" role="button" tabindex="-1">
+                    <div class="home-btn-square"><i data-lucide="clapperboard" class="home-icon-svg"></i></div>
+                    <div class="home-btn-label">Films</div>
+                    <span class="home-btn-description">Catalogue de films</span>
                 </div>
             </div>
         </div>
+        <section id="home-continue" class="home-continue" hidden aria-labelledby="home-continue-title">
+            <h2 id="home-continue-title">Continuer à regarder</h2>
+            <div id="home-continue-row" class="home-continue-row" role="listbox" aria-label="Continuer à regarder"></div>
+        </section>
+        <p id="home-empty" class="home-empty">Vos films et épisodes commencés apparaîtront ici, avec vos dernières chaînes regardées.</p>
     </div>
 
     <!-- 3. VUE BROWSE (En Direct / Films / Series / Rediffusion) -->
@@ -480,6 +485,8 @@
     <script src="js/access-config.js"></script>
     <script src="js/access-core.js"></script>
     <script src="js/activation.js"></script>
+    <script src="js/home-model.js"></script>
+    <script src="js/home.js"></script>
     <script src="js/input.js"></script>
     <script src="js/player.js"></script>
     <script src="js/bootstrap.js"></script>

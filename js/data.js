@@ -683,7 +683,7 @@ function trackRecent(sectionKey, item) {
     let list = getRecentList(sectionKey);
     const itemKey = item.url || item.id;
     list = list.filter(it => (it.url || it.id) !== itemKey);
-    list.unshift({ ...item });
+    list.unshift({ ...item, updatedAt: Date.now() });
     list = list.slice(0, 30);
     try { localStorage.setItem(key, JSON.stringify(list)); } catch (e) {}
 }

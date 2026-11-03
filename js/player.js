@@ -515,8 +515,10 @@ function stopAvplayIfActive() {
 // (hors chaines live) passe par l'API native AVPlay pour le choix de piste
 // audio/sous-titres (cf. startAvplayPlayback) ; tout le reste garde le
 // pipeline <video>+hls.js existant, deja fiable et performant.
+let playerReturnView = 'browse';
 function playStream(url, name, categoryLabel, logo, resumeAt) {
     if (!window.BtvActivation || !window.BtvActivation.requireAccess()) return;
+    if (currentView !== 'player') playerReturnView = currentView === 'home' ? 'home' : 'browse';
     // Un mini-lecteur actif doit s'effacer devant toute nouvelle lecture
     // lancee ailleurs dans l'app (cf. retour utilisateur) : on recupere les
     // elements de lecture dans #player-view sans les arreter, puisque le
@@ -635,7 +637,8 @@ function stopAndExitPlayer() {
     releasePlaybackResources();
     exitFullscreenIfActive();
 
-    showView('browse');
+    if (playerReturnView === 'home') { BtvHome.remember(); enterHome(); }
+    else showView('browse');
 }
 
 // ---------------------------------------------------------------
@@ -667,7 +670,8 @@ function enterMiniPlayer() {
     document.getElementById('mini-player-label').innerText = document.getElementById('osd-program-name').innerText || '—';
     document.getElementById('mini-player').classList.add('visible');
     miniPlayerActive = true;
-    showView('browse');
+    if (playerReturnView === 'home') { BtvHome.remember(); enterHome(); }
+    else showView('browse');
 }
 
 // Remet <video>/#av-player a leur place normale dans #player-view, dans
@@ -708,11 +712,13 @@ function closeMiniPlayerAndDiscard() {
     miniPlayerFocused = false;
     currentPlayItem = null;
     currentPlaySection = null;
+    if (window.BtvHome && currentView === 'home') BtvHome.layout();
 }
 
 function setMiniPlayerFocused(focused) {
     miniPlayerFocused = focused;
     document.getElementById('mini-player').classList.toggle('focused', focused);
+    if (window.BtvHome && currentView === 'home') BtvHome.focus();
 }
 
 // Dispatch dedie pendant que le focus D-pad est sur le mini-lecteur (cf.

@@ -1,10 +1,11 @@
-# Convergence bTV Tizen — activation 1.1.0
+# Convergence bTV Tizen — accueil Android TV 1.2.0
 
 Branche `feature/platform-convergence`, PR https://github.com/BenderRobot/bTV/pull/8.
 La cible de validation est une Samsung récente. Le lecteur AVPlay/HLS existant
 reste utilisé. Ce lot prépare l'activation commune avec Android/iOS ; les profils,
-la synchronisation et la télécommande ne sont pas encore portés. Aucun déploiement
-sur la TV ni publication de mise à jour n'a été fait.
+la synchronisation et la télécommande ne sont pas encore portés. L'utilisateur
+a confirmé l'installation et l'activation de la version 1.1.0 sur sa Samsung.
+La version 1.2.0 reste à tester ; aucune publication automatique n'est faite.
 
 ## Référence visuelle
 
@@ -13,6 +14,31 @@ typographies, cartes d'accueil, mur d'affiches, fiches de médias et organisatio
 des commandes. Adapter la réalisation HTML/CSS et le focus à la télécommande
 Samsung, en conservant cette présentation. L'interface Tizen historique n'est
 pas encore entièrement alignée ; ce travail accompagne les prochains lots.
+
+### Accueil 1.2.0
+
+- Cartes dans l'ordre Android TV : Rediffusion, En direct, Favoris, Séries, Films.
+  Favoris est sélectionné au démarrage. En-tête conservant compte, actualisation
+  et réglages ; message d'accueil selon l'heure, fond discret et contour vert.
+- Grandes affiches de reprise à partir des progressions locales, avec titre,
+  épisode et barre d'avancement. Dernier épisode par série, contenus terminés
+  exclus, chaînes récemment consultées avec logo entier. Maximum trente entrées.
+- Les URL d'un autre serveur/compte sont écartées de cette rangée. Cela ne migre
+  pas encore tous les anciens favoris/caches vers un espace par profil.
+- Navigation Haut/Bas entre en-tête, cartes et affiches ; Gauche/Droite défile
+  uniquement la rangée. OK demande la reprise habituelle ; quitter le lecteur
+  revient à l'accueil avec l'affiche sélectionnée, même si la rangée a été triée.
+- Place réservée au mini-lecteur et taille des affiches adaptée à la taille du texte.
+  En l'absence d'historique, message explicatif et navigation limitée aux cartes.
+- La recherche générale, les rangées de recommandations et le portage des fiches
+  détaillées ne sont pas ajoutés dans ce lot. Les boutons Compte/Réglages conservent
+  leurs fonctions existantes ; aucun bouton de profil sans fonctionnalité réelle.
+
+Validation : 31 tests Node et ESLint, puis tests Edge avec service/coffre/média
+simulés : connexion existante, sécurité des titres, parcours D-pad, défilement,
+reprise et retour du lecteur, mini-lecteur, quatre tailles de texte et historique
+vide. Captures de l'accueil inspectées. L'activation et ses refus ont également
+été rejoués. La lecture native et le nouveau rendu restent à valider sur Samsung.
 
 ## Parcours utilisateur
 
@@ -71,7 +97,7 @@ Après `npm ci --ignore-scripts` :
 `-VerifyOnly` exécute tests et ESLint sans SDK ni TV. `-BuildOnly` effectue ces
 contrôles, le build SDK et la signature avec le profil `myiptv_cert`, sans installation
 ni push Git. Le paquet est `.buildResult\MyIPtv.wgt`. L'identité
-`bfgs9jFN9d.MyIPtv` est conservée, version 1.1.0. Conserver aussi le même certificat
+`bfgs9jFN9d.MyIPtv` est conservée, version 1.2.0. Conserver aussi le même certificat
 pour mettre à jour une installation existante.
 
 Pour installer après revue sur la TV de test :
@@ -86,7 +112,7 @@ déploiement et fichiers Git sont exclus du paquet. Un reçu dans la console ne 
 pas au WGT un mécanisme de mise à jour automatique dans l'app : le parcours Samsung
 de distribution et d'installation reste à finaliser.
 
-## Validation du 3 novembre 2026
+## Validation du lot activation 1.1.0 (3 novembre 2026)
 
 - 27 tests Node et ESLint ; build SDK et signature réussis avec le profil existant.
 - Archive inspectée : signatures présentes, identité/version attendues, licences incluses,

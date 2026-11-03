@@ -41,7 +41,7 @@ const appGlobals = {
 module.exports = [
     { ignores: ['js/vendor/**', '.buildResult/**'] },
     {
-        files: ['js/utils.js', 'js/access-core.js', 'js/access-config.js'],
+        files: ['js/utils.js', 'js/access-core.js', 'js/access-config.js', 'js/home-model.js'],
         languageOptions: {
             ecmaVersion: 2022,
             sourceType: 'script',
@@ -60,7 +60,7 @@ module.exports = [
         }
     },
     {
-        files: ['js/app-shell.js', 'js/modals.js', 'js/data.js', 'js/browse.js', 'js/input.js', 'js/player.js', 'js/bootstrap.js', 'js/activation.js'],
+        files: ['js/app-shell.js', 'js/modals.js', 'js/data.js', 'js/browse.js', 'js/input.js', 'js/player.js', 'js/bootstrap.js', 'js/activation.js', 'js/home.js'],
         languageOptions: {
             ecmaVersion: 2022,
             sourceType: 'script',

@@ -36,6 +36,7 @@ const loginElements = [
 ];
 
 function showView(name) {
+    if (window.BtvActivation && window.BtvActivation.isBlocked() && name !== 'login') return;
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     document.getElementById(`${name}-view`).classList.add('active');
     currentView = name;

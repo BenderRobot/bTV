@@ -10,6 +10,10 @@
 // Gestion globale des touches de la télécommande Samsung
 // ---------------------------------------------------------------
 window.addEventListener('keydown', function (e) {
+    if (window.BtvActivation && window.BtvActivation.isBlocked()) {
+        window.BtvActivation.handleKey(e);
+        return;
+    }
     if (settingsModalOpen) {
         handleSettingsModalKey(e.keyCode);
         return;

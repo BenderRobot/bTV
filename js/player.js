@@ -516,6 +516,7 @@ function stopAvplayIfActive() {
 // audio/sous-titres (cf. startAvplayPlayback) ; tout le reste garde le
 // pipeline <video>+hls.js existant, deja fiable et performant.
 function playStream(url, name, categoryLabel, logo, resumeAt) {
+    if (!window.BtvActivation || !window.BtvActivation.requireAccess()) return;
     // Un mini-lecteur actif doit s'effacer devant toute nouvelle lecture
     // lancee ailleurs dans l'app (cf. retour utilisateur) : on recupere les
     // elements de lecture dans #player-view sans les arreter, puisque le

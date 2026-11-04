@@ -98,6 +98,7 @@ async function connectToIPTV(options) {
         allowedFormats: data.user_info.allowed_output_formats || []
     };
     window.btvMediaStore = BtvMediaStore.create(localStorage, mediaAccount, window.iptvServerConfig, BtvHomeModel.currentAccount);
+    window.BtvSyncRuntime.start();
 
     // The credentials were saved and read back in the native KeyManager.
 
@@ -113,6 +114,7 @@ async function connectToIPTV(options) {
 
 // Efface les identifiants sauvegardés et revient à l'écran de connexion
 async function logout() {
+    window.BtvSyncRuntime.stop();
     try {
         await window.BtvActivation.forgetCredentials();
         localStorage.removeItem(CREDENTIALS_KEY);

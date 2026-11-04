@@ -9,7 +9,7 @@
     const PAIR_MS = 5 * 60 * 1000;
     const TOKEN = /^BTVD[0-9A-F]{32}$/;
     const DEVICE = /^[0-9a-f]{64}$/;
-    const RPCS = ['btv_device_check_platform', 'btv_device_check', 'btv_tv_code_claim', 'btv_pair_start', 'btv_pair_take'];
+    const RPCS = ['btv_device_check_platform', 'btv_device_check', 'btv_tv_code_claim', 'btv_pair_start', 'btv_pair_take', 'btv_sync_pull'];
     class AccessError extends Error {
         constructor(code) { super(code); this.name = 'BtvAccessError'; this.code = code; }
     }
@@ -169,11 +169,11 @@
                     if (reply.status === 404) fail('missing_rpc');
                     if (!reply.ok) fail('network');
                     const text = await reply.text();
-                    if (text.length > 65536) fail('network');
+                    if (text.length > (name === 'btv_sync_pull' ? 1048576 : 65536)) fail('network');
                     if (name === 'btv_pair_start' && (!text || text === 'null')) return {};
                     let value;
                     try { value = JSON.parse(text); } catch (_) { fail('network'); }
-                    if (!object(value)) fail('network');
+                    if (name === 'btv_sync_pull' ? !Array.isArray(value) : !object(value)) fail('network');
                     return value;
                 })()]);
             } catch (error) {
@@ -264,6 +264,11 @@
                 if (reply.status !== 'active') return { status: reply.status || 'invalid' };
                 return await this.accept(reply.device_token, null);
             } finally { this.claiming = false; }
+        }
+        syncPull(key, since) {
+            if (!this.isAllowed() || !matches(key, DEVICE, 64) || !Number.isSafeInteger(since) || since < 0) fail('invalid');
+            return this.rpc('btv_sync_pull', { p_key: key, p_since: since, p_limit: 100,
+                p_token: this.record.token, p_device_id: this.id });
         }
         mediaIdentity(value) {
             const account = credentials(value);

@@ -557,16 +557,16 @@ function getFavoritesList(sectionKey) {
 }
 
 function isFavorite(sectionKey, item) {
-    const key = item.url || item.id;
-    return getFavoritesList(sectionKey).some(it => (it.url || it.id) === key);
+    const key = String(item.id || item.url);
+    return getFavoritesList(sectionKey).some(it => String(it.id || it.url) === key);
 }
 
 function toggleFavorite(sectionKey, item) {
     let list = getFavoritesList(sectionKey);
-    const key = item.url || item.id;
-    const idx = list.findIndex(it => (it.url || it.id) === key);
+    const key = String(item.id || item.url);
+    const idx = list.findIndex(it => String(it.id || it.url) === key);
     let added;
-    if (idx === -1) { list.unshift({ ...item }); added = true; }
+    if (idx === -1) { list.unshift({ ...item, updatedAt: Date.now() }); added = true; }
     else { list.splice(idx, 1); added = false; }
     try { window.btvMediaStore.write(FAV_KEY_PREFIX + sectionKey, list); } catch (e) {}
     return added;

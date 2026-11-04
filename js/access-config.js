@@ -3,6 +3,6 @@
 window.BTV_ACCESS_CONFIG = Object.freeze({
     base: 'https://jtkqtdwgwfslxazwmepq.supabase.co',
     publicKey: 'sb_publishable_g-bSCGv3-x7_l78AmjyPAQ_vJWxcAwD',
-    version: '1.3.0',
+    version: '1.4.0',
     invitation: 'https://btv-invitation-benjamin.socialcake130.chatgpt.site/'
 });

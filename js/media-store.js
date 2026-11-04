@@ -11,7 +11,7 @@
         return match ? match[2] : null;
     }
     function allowed(key) {
-        return !!section(key) || ['iptv_known_episodes', 'iptv_new_episodes'].includes(key);
+        return !!section(key) || ['iptv_known_episodes', 'iptv_new_episodes'].includes(key) || /^iptv_android_sync_v1_[a-f0-9]{64}$/.test(key);
     }
     function create(storage, account, config, ownsURL) {
         if (!account || !/^[a-f0-9]{64}$/.test(account.id)) throw new Error('media_storage');

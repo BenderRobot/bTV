@@ -1,4 +1,39 @@
-# Convergence bTV Tizen — isolation des données 1.3.0
+# Convergence bTV Tizen — réception Android 1.4.0
+
+## Favoris et historique Android — 1.4.0
+
+Réception automatique des favoris et de l'historique du **Principal** Android,
+par le même `btv_sync_pull` authentifié par appareil. Même compte IPTV (adresse
+serveur, utilisateur, mot de passe) et même accès/licence bTV nécessaires.
+La clé sync-v1 respecte les longueurs UTF-16 Android ; les trois vecteurs communs
+ASCII/accents/emoji sont exécutés dans les tests. Aucune RPC non authentifiée,
+nouvelle migration ou clé d'administration n'est introduite.
+
+Récupération après connexion, au retour dans l'app, chaque minute au premier plan
+et avec Actualiser. Pagination de 100 lignes, vingt pages maximum par tour, curseur
+persisté après application de la page ; une coupure ou écriture refusée est rejouée.
+Les entrées locales plus récentes restent prioritaires. Les suppressions et le
+marqueur d'effacement Android sont appliqués aux favoris/historiques plus anciens.
+Les flux sont reconstruits à partir du compte local et de l'identifiant fournisseur.
+Les favoris de séries restent des fiches de séries ; l'historique des épisodes est
+regroupé par série dans les parcours habituels. Les identifiants numériques/string
+ne créent plus de doublons de favoris.
+
+Ce lot reçoit Android → Tizen : aucune modification Tizen n'est envoyée au cloud.
+Les autres profils, la progression de lecture, les pistes et les réglages cloud
+restent hors de ce raccord. L'historique est borné localement à 500 entrées ; les
+favoris ne sont pas évincés automatiquement. Ouvrir de nouveau la rubrique si une
+réception arrive pendant sa consultation. Une suppression locale n'est pas une
+suppression cloud ; une nouvelle modification Android peut réintroduire le média.
+
+Validation : 49 tests Node, ESLint, six tests de contrôle WGT, build SDK et signature
+avec le profil existant réussis. La réception réelle depuis le compte Android
+reste à valider sur Samsung. Aucun push ou installation effectué dans ce lot.
+
+Recette : ouvrir Principal sur Android, laisser sa synchronisation terminer,
+installer 1.4.0 sans désinstallation, ouvrir Favoris et Récemment consultés ; ajouter
+puis retirer un favori sur Android, consulter un film/épisode, puis actualiser Tizen.
+Rejouer après une coupure réseau et vérifier qu'un changement local récent est gardé.
 
 ## Reprise du 4 novembre 2026 — données communes
 

@@ -265,6 +265,7 @@ function activateHomeSelection() {
 // Vide les caches locaux pour forcer un rechargement des categories/contenus
 // depuis le serveur au prochain acces (sans quitter l'ecran d'accueil).
 function refreshPlaylistData() {
+    if (window.BtvSyncRuntime) window.BtvSyncRuntime.receive();
     Object.keys(categoriesCache).forEach(k => delete categoriesCache[k]);
     Object.keys(itemsCache).forEach(k => delete itemsCache[k]);
     Object.keys(vodInfoCache).forEach(k => delete vodInfoCache[k]);

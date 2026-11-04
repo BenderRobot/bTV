@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "fixturesOnly": true,
+  "cases": [
+    {
+      "name": "ascii",
+      "serverUrl": "https://example.invalid/",
+      "username": "demo",
+      "password": "test-password",
+      "sourceKey": "51de27377b6a1a9b47e72d5ad88ef719e6edbed2700581cd0defd7b3e0fad882",
+      "profileId": "11111111-2222-4333-8444-555555555555",
+      "registryKey": "6bf219eb32c7286d764d12068b66b46f79584c53a94ac3a2c17abc1abda1f20b",
+      "profileMediaKey": "0a68778610e2750b402a81dd8f904cf276a621b5c36b4c292228f771d1ea5ef3"
+    },
+    {
+      "name": "accents",
+      "serverUrl": " https://example.invalid/// ",
+      "username": "demo-é",
+      "password": "mot-é",
+      "sourceKey": "ab3ce039fe62c34317baf3c38bb7af3fc4160f69f7cfa826579e9f6b1fb8d3ac",
+      "profileId": "11111111-2222-4333-8444-555555555555",
+      "registryKey": "d9ffe8f4850a9a99d4c224183023869a7675b8fbbe3ee96d7d57181cf5115ac3",
+      "profileMediaKey": "2944e3e4fa1557d7e056b9d74495536fcc63f78d7ad51f0a1fe3a0e857c33aff"
+    },
+    {
+      "name": "utf16",
+      "serverUrl": "https://example.invalid",
+      "username": "demo-😀",
+      "password": "clé-🔒",
+      "sourceKey": "e0b19a6515d22da425864fd4247bbfe266b8387847a78ccf44e68cf62595d547",
+      "profileId": "11111111-2222-4333-8444-555555555555",
+      "registryKey": "edc8d98ed84497065ab7aed9f0b8e01e89e6526840afc916ea5a163cbe6aeeb5",
+      "profileMediaKey": "a88e407e5d6732ae96e0362728224c01170497e6af6b499fdaa61287e85234c1"
+    }
+  ]
+}

@@ -239,6 +239,10 @@
             return false;
         },
         readCredentials: () => client && client.readCredentials(),
+        syncPull: (key, since) => {
+            if (!client || blocked || !client.isAllowed()) throw new BtvAccessCore.AccessError('invalid');
+            return client.syncPull(key, since);
+        },
         async mediaAccount(value) {
             try { if (!client || !client.isAllowed()) throw new BtvAccessCore.AccessError('invalid'); return await client.mediaAccount(value); }
             catch (error) { show(error.code || 'storage'); throw error; }

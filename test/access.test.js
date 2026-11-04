@@ -57,6 +57,20 @@ test('media accounts survive restarts and password changes, and never share name
     assert(!JSON.stringify([...state.vault.data]).includes('changed'));
 });
 
+test('sync pull uses only activated device credentials, bounded pages and the authenticated RPC', async () => {
+    const state = fixture(), client = state.client();await client.initialize();
+    assert.throws(()=>client.syncPull('a'.repeat(64),0),error=>error.code==='invalid');
+    await client.claimCode('ABCD2345');
+    state.reply=name=>name==='btv_sync_pull'?response([]):response({status:'active',device_token:TOKEN});
+    assert.deepEqual(await client.syncPull('a'.repeat(64),12),[]);
+    const request=state.requests.at(-1);
+    assert.equal(request.name,'btv_sync_pull');
+    assert.deepEqual(request.body,{p_key:'a'.repeat(64),p_since:12,p_limit:100,p_token:TOKEN,p_device_id:client.id});
+    state.reply=()=>response({},403);
+    await assert.rejects(client.syncPull('a'.repeat(64),12));
+    assert.equal(state.requests.at(-1).name,'btv_sync_pull');
+});
+
 test('legacy media owner is captured before a different account signs in and survives logout', async () => {
     const state = fixture();
     const a = { serverUrl: 'https://example.invalid', username: 'old', password: 'secret' };

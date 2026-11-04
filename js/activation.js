@@ -239,6 +239,10 @@
             return false;
         },
         readCredentials: () => client && client.readCredentials(),
+        async mediaAccount(value) {
+            try { if (!client || !client.isAllowed()) throw new BtvAccessCore.AccessError('invalid'); return await client.mediaAccount(value); }
+            catch (error) { show(error.code || 'storage'); throw error; }
+        },
         async saveCredentials(value) {
             try { if (!client || !client.isAllowed()) throw new BtvAccessCore.AccessError('invalid'); await client.saveCredentials(value); }
             catch (error) { show(error.code || 'storage'); throw error; }

@@ -76,7 +76,11 @@ async function connectToIPTV(options) {
         error.accessBlocked = true;
         throw error;
     }
-    try { await window.BtvActivation.saveCredentials({ serverUrl, username, password }); }
+    let mediaAccount;
+    try {
+        mediaAccount = await window.BtvActivation.mediaAccount({ serverUrl, username, password });
+        await window.BtvActivation.saveCredentials({ serverUrl, username, password });
+    }
     catch (storageError) {
         storageError.permanent = true;
         storageError.accessBlocked = true;
@@ -93,6 +97,7 @@ async function connectToIPTV(options) {
         serverUrl, username, password,
         allowedFormats: data.user_info.allowed_output_formats || []
     };
+    window.btvMediaStore = BtvMediaStore.create(localStorage, mediaAccount, window.iptvServerConfig, BtvHomeModel.currentAccount);
 
     // The credentials were saved and read back in the native KeyManager.
 

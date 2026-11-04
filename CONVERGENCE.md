@@ -1,4 +1,40 @@
-# Convergence bTV Tizen — accueil Android TV 1.2.0
+# Convergence bTV Tizen — isolation des données 1.3.0
+
+## Reprise du 4 novembre 2026 — données communes
+
+Référence produit : Android 2.12.41, commit `1b6e7ff`. Priorité confirmée : profils,
+favoris, reprise et synchronisation. Premier prérequis livré localement : séparation
+par compte IPTV des favoris, historique, progression/Vu, pistes, catégories masquées
+et suivi des épisodes. Le profil local reste Principal implicite ; aucun sélecteur
+familial ni synchronisation cloud n'est annoncé dans cette version.
+
+Le coffre KeyManager conserve un registre serveur normalisé/utilisateur → identifiant
+aléatoire. Les clés de données utilisent cet identifiant, sans compte ni mot de passe.
+Il reste stable après redémarrage, déconnexion et changement de mot de passe. Ce
+registre local n'est pas une clé du transport Android : la future synchronisation
+devra appliquer exactement le contrat Android, qui inclut le mot de passe dans sa
+clé cloud. Limite locale de 32 comptes, sans éviction automatique.
+
+L'ancien compte mémorisé est identifié avant une nouvelle connexion. Lui seul peut
+recevoir les données globales historiques ; les entrées contenant une URL étrangère
+sont exclues. Les anciennes données sans URL ne permettent pas une attribution
+certaine si plusieurs comptes avaient été mélangés auparavant : elles sont associées
+au compte mémorisé, pas aux comptes connectés ensuite. S'il n'y avait aucun compte
+mémorisé, les données historiques restent en réserve, sans attribution automatique.
+La copie originale n'est jamais supprimée. Une migration interrompue ou refusée par
+le quota peut être réessayée ; une liste explicitement vidée n'est pas réimportée.
+Une réponse tardive du suivi des épisodes n'écrit pas dans le nouveau compte.
+
+Validation locale : 39 tests Node, ESLint, 6 tests du contrôle WGT, build SDK,
+signature avec le profil existant et inspection de l'archive 1.3.0 réussis.
+Paquet : `.buildResult/MyIPtv.wgt`. Aucune installation Samsung, aucun push ou
+déploiement réalisé dans ce lot. Recette restante : mise à niveau sans désinstallation,
+conservation des favoris/reprises, déconnexion/reconnexion et passage entre comptes.
+
+Suite : profils familiaux/PIN sur iOS et Tizen, puis mapping des identifiants de média
+et synchronisation des favoris/reprises avec suppressions et conflits horodatés.
+
+## Historique — accueil 1.2.0
 
 Branche `feature/platform-convergence`, PR https://github.com/BenderRobot/bTV/pull/8.
 La cible de validation est une Samsung récente. Le lecteur AVPlay/HLS existant

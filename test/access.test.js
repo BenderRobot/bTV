@@ -39,6 +39,52 @@ function fixture() {
     return state;
 }
 
+test('media accounts survive restarts and password changes, and never share namespaces', async () => {
+    const state = fixture(), client = state.client();
+    await client.initialize();
+    const a = { serverUrl: 'https://example.invalid/', username: 'demo', password: 'first' };
+    const first = await client.mediaAccount(a);
+    const concurrent = await Promise.all([client.mediaAccount(a), client.mediaAccount(a)]);
+    assert(concurrent.every(it => it.id === first.id));
+    const other = await client.mediaAccount({ ...a, username: 'other' });
+    const server = await client.mediaAccount({ ...a, serverUrl: 'https://other.invalid' });
+    assert.notEqual(first.id, other.id);
+    assert.notEqual(first.id, server.id);
+    const restarted = state.client(); await restarted.initialize();
+    assert.deepEqual(await restarted.mediaAccount({ ...a, serverUrl: 'https://example.invalid', password: 'changed' }), first);
+    assert.equal(first.legacyOwner, false);
+    assert.equal(state.local.data.size, 0);
+    assert(!JSON.stringify([...state.vault.data]).includes('changed'));
+});
+
+test('legacy media owner is captured before a different account signs in and survives logout', async () => {
+    const state = fixture();
+    const a = { serverUrl: 'https://example.invalid', username: 'old', password: 'secret' };
+    state.local.setItem('iptv_credentials', JSON.stringify(a));
+    const client = state.client(); await client.initialize();
+    const owner = await client.mediaAccount(a);
+    assert.equal(owner.legacyOwner, true);
+    const b = { ...a, username: 'new' };
+    assert.equal((await client.mediaAccount(b)).legacyOwner, false);
+    await client.saveCredentials(b);
+    await client.forgetCredentials();
+    const restarted = state.client(); await restarted.initialize();
+    assert.deepEqual(await restarted.mediaAccount(a), owner);
+    assert.equal((await restarted.mediaAccount(b)).legacyOwner, false);
+});
+
+test('a failed namespace write cannot silently select a different account or destroy its mapping', async () => {
+    const state = fixture(), client = state.client();
+    await client.initialize();
+    const a = { serverUrl: 'https://example.invalid', username: 'one', password: 'secret' };
+    const first = await client.mediaAccount(a);
+    state.vault.failSave = true;
+    await assert.rejects(client.mediaAccount({ ...a, username: 'two' }), error => error.code === 'storage');
+    assert.deepEqual(await client.mediaAccount(a), first);
+    state.vault.failSave = false;
+    assert.notEqual((await client.mediaAccount({ ...a, username: 'two' })).id, first.id);
+});
+
 test('a malformed existing native account never causes the legacy recovery copy to be deleted', async () => {
     const state = fixture(), client = state.client();
     await client.initialize();

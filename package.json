@@ -1,7 +1,7 @@
 {
   "name": "btv",
   "private": true,
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "App IPTV Tizen (bTV) — scripts de dev (tests, lint) uniquement, l'app elle-meme ne depend d'aucun build.",
   "scripts": {
     "test": "node --test",

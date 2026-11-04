@@ -67,7 +67,7 @@ function saveSubtitlePrefs(prefs) {
 const HIDDEN_CATEGORIES_KEY_PREFIX = 'iptv_hidden_categories_';
 
 function getHiddenCategoryIds(sectionKey) {
-    try { return JSON.parse(localStorage.getItem(HIDDEN_CATEGORIES_KEY_PREFIX + sectionKey)) || []; } catch (e) { return []; }
+    try { return window.btvMediaStore.read(HIDDEN_CATEGORIES_KEY_PREFIX + sectionKey, []); } catch (e) { return []; }
 }
 
 function isCategoryHidden(sectionKey, catId) {
@@ -80,7 +80,7 @@ function toggleCategoryHidden(sectionKey, catId) {
     let ids = getHiddenCategoryIds(sectionKey);
     const wasHidden = ids.includes(idStr);
     ids = wasHidden ? ids.filter(id => id !== idStr) : [...ids, idStr];
-    try { localStorage.setItem(HIDDEN_CATEGORIES_KEY_PREFIX + sectionKey, JSON.stringify(ids)); } catch (e) {}
+    try { window.btvMediaStore.write(HIDDEN_CATEGORIES_KEY_PREFIX + sectionKey, ids); } catch (e) {}
     return !wasHidden;
 }
 
@@ -553,7 +553,7 @@ const FAV_KEY_PREFIX = 'iptv_favorites_';
 const RECENT_KEY_PREFIX = 'iptv_recent_';
 
 function getFavoritesList(sectionKey) {
-    try { return JSON.parse(localStorage.getItem(FAV_KEY_PREFIX + sectionKey)) || []; } catch (e) { return []; }
+    try { return window.btvMediaStore.read(FAV_KEY_PREFIX + sectionKey, []); } catch (e) { return []; }
 }
 
 function isFavorite(sectionKey, item) {
@@ -568,7 +568,7 @@ function toggleFavorite(sectionKey, item) {
     let added;
     if (idx === -1) { list.unshift({ ...item }); added = true; }
     else { list.splice(idx, 1); added = false; }
-    try { localStorage.setItem(FAV_KEY_PREFIX + sectionKey, JSON.stringify(list)); } catch (e) {}
+    try { window.btvMediaStore.write(FAV_KEY_PREFIX + sectionKey, list); } catch (e) {}
     return added;
 }
 
@@ -586,15 +586,15 @@ const KNOWN_EPISODES_KEY = 'iptv_known_episodes';
 const NEW_EPISODES_KEY = 'iptv_new_episodes';
 
 function getKnownEpisodesMap() {
-    try { return JSON.parse(localStorage.getItem(KNOWN_EPISODES_KEY)) || {}; } catch (e) { return {}; }
+    try { return window.btvMediaStore.read(KNOWN_EPISODES_KEY, {}); } catch (e) { return {}; }
 }
 
 function getNewEpisodesMap() {
-    try { return JSON.parse(localStorage.getItem(NEW_EPISODES_KEY)) || {}; } catch (e) { return {}; }
+    try { return window.btvMediaStore.read(NEW_EPISODES_KEY, {}); } catch (e) { return {}; }
 }
 
 function saveNewEpisodesMap(map) {
-    try { localStorage.setItem(NEW_EPISODES_KEY, JSON.stringify(map)); } catch (e) {}
+    try { window.btvMediaStore.write(NEW_EPISODES_KEY, map); } catch (e) {}
 }
 
 // Nombre de nouveaux episodes encore non acquittes pour une serie favorite
@@ -620,6 +620,7 @@ function acknowledgeNewEpisodes(seriesId) {
 // plus haut) — un peu plus lent si beaucoup de series sont favorites, mais
 // ça tourne en arriere-plan sans bloquer l'interface (cf. appelants).
 async function checkFavoriteSeriesForNewEpisodes() {
+    const mediaStore = window.btvMediaStore;
     const favorites = getFavoritesList('series');
     if (!favorites.length) return [];
 
@@ -634,6 +635,7 @@ async function checkFavoriteSeriesForNewEpisodes() {
         } catch (e) {
             continue;
         }
+        if (window.btvMediaStore !== mediaStore) return [];
         const episodeIds = Object.values(info.episodes || {}).flat().map(ep => String(ep.id));
         if (!episodeIds.length) continue;
 
@@ -648,7 +650,8 @@ async function checkFavoriteSeriesForNewEpisodes() {
         knownMap[fav.id] = episodeIds;
     }
 
-    try { localStorage.setItem(KNOWN_EPISODES_KEY, JSON.stringify(knownMap)); } catch (e) {}
+    if (window.btvMediaStore !== mediaStore) return [];
+    try { window.btvMediaStore.write(KNOWN_EPISODES_KEY, knownMap); } catch (e) {}
     saveNewEpisodesMap(newMap);
     return newlyFound;
 }
@@ -674,7 +677,7 @@ async function notifyNewFavoriteEpisodes() {
 }
 
 function getRecentList(sectionKey) {
-    try { return JSON.parse(localStorage.getItem(RECENT_KEY_PREFIX + sectionKey)) || []; } catch (e) { return []; }
+    try { return window.btvMediaStore.read(RECENT_KEY_PREFIX + sectionKey, []); } catch (e) { return []; }
 }
 
 function trackRecent(sectionKey, item) {
@@ -685,7 +688,7 @@ function trackRecent(sectionKey, item) {
     list = list.filter(it => (it.url || it.id) !== itemKey);
     list.unshift({ ...item, updatedAt: Date.now() });
     list = list.slice(0, 30);
-    try { localStorage.setItem(key, JSON.stringify(list)); } catch (e) {}
+    try { window.btvMediaStore.write(key, list); } catch (e) {}
 }
 
 // Retire une entree de l'historique "Recemment consultes". Pour une fiche
@@ -701,7 +704,7 @@ function removeFromRecent(sectionKey, item) {
         const itemKey = item.url || item.id;
         list = list.filter(it => (it.url || it.id) !== itemKey);
     }
-    try { localStorage.setItem(key, JSON.stringify(list)); } catch (e) {}
+    try { window.btvMediaStore.write(key, list); } catch (e) {}
 }
 
 // Regroupement (algorithme pur) dans js/utils.js (cf. groupRecentList,
@@ -719,11 +722,11 @@ const PROGRESS_DONE_RATIO = 0.92; // au-dela : considere comme termine, pas de r
 const PROGRESS_MIN_SECONDS = 15; // en dessous : trop tot pour valoir la peine d'etre memorise
 
 function getProgressMap(sectionKey) {
-    try { return JSON.parse(localStorage.getItem(PROGRESS_KEY_PREFIX + sectionKey)) || {}; } catch (e) { return {}; }
+    try { return window.btvMediaStore.read(PROGRESS_KEY_PREFIX + sectionKey, {}); } catch (e) { return {}; }
 }
 
 function saveProgressMap(sectionKey, map) {
-    try { localStorage.setItem(PROGRESS_KEY_PREFIX + sectionKey, JSON.stringify(map)); } catch (e) {}
+    try { window.btvMediaStore.write(PROGRESS_KEY_PREFIX + sectionKey, map); } catch (e) {}
 }
 
 function getProgress(sectionKey, item) {
@@ -787,11 +790,11 @@ function saveProgress(sectionKey, item, position, duration) {
 const TRACK_PREF_KEY_PREFIX = 'iptv_trackpref_';
 
 function getTrackPrefMap(sectionKey) {
-    try { return JSON.parse(localStorage.getItem(TRACK_PREF_KEY_PREFIX + sectionKey)) || {}; } catch (e) { return {}; }
+    try { return window.btvMediaStore.read(TRACK_PREF_KEY_PREFIX + sectionKey, {}); } catch (e) { return {}; }
 }
 
 function saveTrackPrefMap(sectionKey, map) {
-    try { localStorage.setItem(TRACK_PREF_KEY_PREFIX + sectionKey, JSON.stringify(map)); } catch (e) {}
+    try { window.btvMediaStore.write(TRACK_PREF_KEY_PREFIX + sectionKey, map); } catch (e) {}
 }
 
 function getTrackPref(sectionKey, item) {

@@ -44,7 +44,7 @@
         constructor(manager, now) { this.manager = manager; this.now = now; this.writing = Promise.resolve(); }
         available() { return !!this.manager && ['getData', 'saveData', 'removeData'].every(key => typeof this.manager[key] === 'function'); }
         alias(name, slot) {
-            if (!['identity', 'access', 'credentials'].includes(name)) fail('storage');
+            if (!['identity', 'access', 'credentials', 'media_accounts'].includes(name)) fail('storage');
             return 'btv.' + name + '.v1.' + slot;
         }
         slots(name) {
@@ -104,6 +104,7 @@
             this.storage = options.storage;
             this.now = options.now || Date.now;
             this.vault = new Vault(options.keymanager, this.now);
+            this.mediaWriting = Promise.resolve();
             this.base = (options.base || '').replace(/\/$/, '');
             this.publicKey = options.publicKey || '';
             this.version = options.version || '';
@@ -137,6 +138,9 @@
                 try { value = credentials(JSON.parse(legacy)); } catch (_) { fail('credentials'); }
                 await this.vault.write('credentials', value);
             }
+            // Bind ambiguous old ID-only data to the account remembered BEFORE
+            // a new login. A fresh login must never claim another account's data.
+            await this.initializeMediaAccounts(this.vault.read('credentials'));
             if (legacy) {
                 try { this.storage.removeItem('iptv_credentials'); } catch (_) { fail('storage'); }
             }
@@ -260,6 +264,43 @@
                 if (reply.status !== 'active') return { status: reply.status || 'invalid' };
                 return await this.accept(reply.device_token, null);
             } finally { this.claiming = false; }
+        }
+        mediaIdentity(value) {
+            const account = credentials(value);
+            return JSON.stringify([new URL(account.serverUrl).href.replace(/\/+$/, ''), account.username]);
+        }
+        mediaRegistry() {
+            const value = this.vault.read('media_accounts');
+            if (value === null) return null;
+            if (value.schema !== 1 || !Array.isArray(value.accounts) || value.accounts.length > 32 ||
+                !value.accounts.every(it => object(it) && typeof it.account === 'string' && matches(it.id, DEVICE, 64)) ||
+                new Set(value.accounts.map(it => it.account)).size !== value.accounts.length ||
+                new Set(value.accounts.map(it => it.id)).size !== value.accounts.length ||
+                !(value.legacyOwner === null || value.accounts.some(it => it.id === value.legacyOwner))) fail('storage');
+            return value;
+        }
+        async initializeMediaAccounts(saved) {
+            if (this.mediaRegistry() !== null) return;
+            const id = saved ? randomHex(this.crypto, 32) : null;
+            await this.vault.write('media_accounts', { schema: 1, legacyOwner: id,
+                accounts: saved ? [{ account: this.mediaIdentity(saved), id }] : [] });
+        }
+        mediaAccount(value) {
+            const account = this.mediaIdentity(value);
+            const operation = this.mediaWriting.catch(() => {}).then(async () => {
+                const registry = this.mediaRegistry();
+                if (!registry) fail('storage');
+                let entry = registry.accounts.find(it => it.account === account);
+                if (!entry) {
+                    if (registry.accounts.length >= 32) fail('storage');
+                    entry = { account, id: randomHex(this.crypto, 32) };
+                    registry.accounts.push(entry);
+                    await this.vault.write('media_accounts', registry);
+                }
+                return { id: entry.id, legacyOwner: registry.legacyOwner === entry.id };
+            });
+            this.mediaWriting = operation;
+            return operation;
         }
         readCredentials() { return this.vault.read('credentials'); }
         saveCredentials(value) { return this.vault.write('credentials', credentials(value)); }

@@ -36,6 +36,7 @@ const loginElements = [
 ];
 
 function showView(name) {
+    if (window.BtvActivation && window.BtvActivation.isBlocked() && name !== 'login') return;
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     document.getElementById(`${name}-view`).classList.add('active');
     currentView = name;
@@ -161,6 +162,7 @@ function applyTextSize(idx) {
         root.style.width = (1920 / option.zoom) + 'px';
         root.style.height = (1080 / option.zoom) + 'px';
         root.style.zoom = option.zoom;
+        if (window.BtvHome) requestAnimationFrame(() => BtvHome.layout());
     }
     // Contre-zoom sur le lecteur plein ecran : "hors lecteur video" doit
     // rester vrai, sinon la video/OSD (dimensionnes en vw/vh/100%) serait
@@ -176,15 +178,16 @@ applyTextSize(getTextSizeIndex());
 // ---------------------------------------------------------------
 // Home Dashboard
 // ---------------------------------------------------------------
-const HOME_BUTTONS = ['favorites', 'live', 'movies', 'series', 'replay'];
+const HOME_BUTTONS = ['replay', 'live', 'favorites', 'series', 'movies'];
 const HEADER_BUTTONS = ['user', 'refresh', 'settings'];
-let homeIndex = 2; // 'Films' pre-selectionne par defaut a l'ouverture de l'app
-let homeZone = 'menu'; // 'menu' | 'header'
+let homeIndex = 2; // Favoris, comme Android TV.
+let homeZone = 'menu'; // 'menu' | 'header' | 'continue'
 let headerIndex = 0;
 
 function updateHomeFocus() {
     document.querySelectorAll('.home-btn').forEach((el, idx) => el.classList.toggle('focused', homeZone === 'menu' && idx === homeIndex));
     document.querySelectorAll('.home-icon').forEach((el, idx) => el.classList.toggle('focused', homeZone === 'header' && idx === headerIndex));
+    if (window.BtvHome) BtvHome.focus();
 }
 
 function formatExpiry(expUnixSeconds) {
@@ -235,7 +238,8 @@ let cachedDeviceMac = null;
 
 function enterHome() {
     showView('home');
-    homeZone = 'menu';
+    if (window.BtvHome) BtvHome.render();
+    homeZone = window.BtvHome && BtvHome.restore() ? 'continue' : 'menu';
     // homeIndex n'est volontairement pas reinitialise ici : on revient sur
     // le dernier menu selectionne (Films/Series/...), pas systematiquement
     // sur "En Direct".
@@ -246,7 +250,9 @@ function enterHome() {
 }
 
 function activateHomeSelection() {
-    if (homeZone === 'menu') {
+    if (homeZone === 'continue') {
+        BtvHome.open();
+    } else if (homeZone === 'menu') {
         openBrowseSection(HOME_BUTTONS[homeIndex]);
     } else {
         const action = HEADER_BUTTONS[headerIndex];
@@ -259,6 +265,7 @@ function activateHomeSelection() {
 // Vide les caches locaux pour forcer un rechargement des categories/contenus
 // depuis le serveur au prochain acces (sans quitter l'ecran d'accueil).
 function refreshPlaylistData() {
+    if (window.BtvSyncRuntime) window.BtvSyncRuntime.receive();
     Object.keys(categoriesCache).forEach(k => delete categoriesCache[k]);
     Object.keys(itemsCache).forEach(k => delete itemsCache[k]);
     Object.keys(vodInfoCache).forEach(k => delete vodInfoCache[k]);

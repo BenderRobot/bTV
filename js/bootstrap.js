@@ -13,6 +13,12 @@
 // initiée lui-même. Un échec "permanent" (identifiants refusés) est marqué
 // via err.permanent pour ne jamais être re-tenté silencieusement.
 async function connectToIPTV(options) {
+    if (!window.BtvActivation || !window.BtvActivation.requireAccess()) {
+        const error = new Error('BTV_ACCESS_REQUIRED');
+        error.permanent = true;
+        error.accessBlocked = true;
+        throw error;
+    }
     const silent = !!(options && options.silent);
     let serverUrl = document.getElementById('iptv-url').value.trim().replace(/['"]+/g, '');
     const username = document.getElementById('iptv-user').value.trim().replace(/['"]+/g, '');
@@ -28,7 +34,7 @@ async function connectToIPTV(options) {
         response = await fetch(apiUrl);
     } catch (networkError) {
         // Serveur injoignable : DNS, TLS, connexion refusee, pas de reseau...
-        console.error('Serveur IPTV injoignable:', networkError);
+        console.error('Serveur IPTV injoignable');
         if (silent) throw networkError;
         flashAppToast("Serveur injoignable — vérifiez l'adresse et votre connexion");
         return;
@@ -47,19 +53,38 @@ async function connectToIPTV(options) {
     } catch (parseError) {
         // Reponse OK cote HTTP mais pas du JSON valide : URL pointant vers
         // autre chose qu'un panel Xtream, page d'erreur du serveur, etc.
-        console.error('Reponse invalide connexion IPTV:', parseError);
+        console.error('Reponse invalide connexion IPTV');
         if (silent) throw parseError;
         flashAppToast('Réponse invalide du serveur — vérifiez l\'URL du serveur');
         return;
     }
 
     if (!(data.user_info && data.user_info.auth === 1)) {
-        console.error('Authentification refusée:', data.user_info);
+        // Xtream user_info can contain the account's username and password.
+        console.error('Authentification IPTV refusée');
         const authError = new Error('AUTH_REFUSED');
         authError.permanent = true; // identifiants/abonnement en cause : jamais transitoire, ne pas re-tenter
         if (silent) throw authError;
         flashAppToast('Identifiants invalides ou compte expiré');
         return;
+    }
+
+    // A license check can finish while the IPTV response is in flight.
+    if (!window.BtvActivation.requireAccess()) {
+        const error = new Error('BTV_ACCESS_REQUIRED');
+        error.permanent = true;
+        error.accessBlocked = true;
+        throw error;
+    }
+    let mediaAccount;
+    try {
+        mediaAccount = await window.BtvActivation.mediaAccount({ serverUrl, username, password });
+        await window.BtvActivation.saveCredentials({ serverUrl, username, password });
+    }
+    catch (storageError) {
+        storageError.permanent = true;
+        storageError.accessBlocked = true;
+        throw storageError;
     }
 
     document.getElementById('home-expiry').innerText = formatExpiry(data.user_info.exp_date);
@@ -72,11 +97,10 @@ async function connectToIPTV(options) {
         serverUrl, username, password,
         allowedFormats: data.user_info.allowed_output_formats || []
     };
+    window.btvMediaStore = BtvMediaStore.create(localStorage, mediaAccount, window.iptvServerConfig, BtvHomeModel.currentAccount);
+    window.BtvSyncRuntime.start();
 
-    // Conserve les identifiants pour éviter une reconnexion manuelle
-    try {
-        localStorage.setItem(CREDENTIALS_KEY, JSON.stringify({ serverUrl, username, password }));
-    } catch (e) {}
+    // The credentials were saved and read back in the native KeyManager.
 
     // Repart d'un état propre en cas de reconnexion, puis recharge
     // instantanement ce qui est deja connu de ce compte depuis un
@@ -89,11 +113,13 @@ async function connectToIPTV(options) {
 }
 
 // Efface les identifiants sauvegardés et revient à l'écran de connexion
-function logout() {
+async function logout() {
+    window.BtvSyncRuntime.stop();
     try {
+        await window.BtvActivation.forgetCredentials();
         localStorage.removeItem(CREDENTIALS_KEY);
-    } catch (e) {}
-    location.reload();
+        location.reload();
+    } catch (e) { flashAppToast('Le compte ne peut pas être effacé maintenant. Réessayez.'); }
 }
 
 // Auto-connexion si des identifiants ont déjà été validés précédemment. Au
@@ -111,12 +137,13 @@ async function attemptAutoLogin(attempt) {
     try {
         await connectToIPTV({ silent: true });
     } catch (e) {
+        if (e && e.accessBlocked) return;
         if (e && e.permanent) {
             flashAppToast('Identifiants invalides ou compte expiré');
             return;
         }
         if (attempt >= AUTO_LOGIN_MAX_RETRIES) {
-            console.error('Auto-login abandonné après plusieurs tentatives:', e);
+            console.error('Auto-login abandonné après plusieurs tentatives');
             flashAppToast('Connexion automatique impossible — vérifiez le réseau');
             return;
         }
@@ -124,19 +151,18 @@ async function attemptAutoLogin(attempt) {
     }
 }
 
-(function tryAutoLogin() {
+window.BtvActivation.start(async function restoreAccountAfterActivation() {
     try {
-        const saved = localStorage.getItem(CREDENTIALS_KEY);
-        if (!saved) return;
-        const creds = JSON.parse(saved);
+        const creds = window.BtvActivation.readCredentials();
+        if (!creds) { showView('login'); updateLoginFocus(); return; }
         document.getElementById('iptv-url').value = creds.serverUrl || '';
         document.getElementById('iptv-user').value = creds.username || '';
         document.getElementById('iptv-pass').value = creds.password || '';
-        attemptAutoLogin();
+        await attemptAutoLogin();
     } catch (e) {
-        console.error('Erreur auto-login:', e);
+        console.error('Erreur auto-login');
     }
-})();
+});
 
 // Rendu initial des icones Lucide (menu, header). Idempotent : sans effet
 // sur les icones deja converties, donc sans risque a rappeler ailleurs.

@@ -1,0 +1,30 @@
+name: Tizen web checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  package-guard:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject private/development paths in WGT fixtures
+        shell: powershell
+        run: ./tools/test-wgt.ps1
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm test
+      - run: npm run lint
+      # Packaging, Samsung signing and TV installation require the native
+      # workstation/profile and are not marked passed by these web checks.

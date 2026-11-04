@@ -4,10 +4,33 @@
     <meta charset="utf-8">
     <title>IPTV Tizen App</title>
     <link rel="stylesheet" href="css/style.css">
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.7.1/dist/hls.min.js"></script>
-    <script src="https://unpkg.com/lucide@1.38.0/dist/umd/lucide.min.js"></script>
+    <link rel="stylesheet" href="css/activation.css">
+    <link rel="stylesheet" href="css/home.css">
+    <script src="js/vendor/hls-1.7.1.min.js"></script>
+    <script src="js/vendor/lucide-1.38.0.min.js"></script>
+    <script src="js/vendor/qrcode-generator-1.4.4.js"></script>
 </head>
 <body>
+    <div id="activation-gate" role="dialog" aria-modal="true" aria-labelledby="activation-title">
+        <div class="activation-panel">
+            <div class="activation-brand"><img src="icon.png" alt="" width="64" height="64"><strong>bTV</strong></div>
+            <h1 id="activation-title">Activer cette TV</h1>
+            <p class="activation-instructions">Depuis <strong>bTV sur votre téléphone déjà activé</strong>, ouvrez Réglages → Serveur → Activer une TV avec un QR code. Utilisez le scanner de bTV, pas l’appareil photo du téléphone.</p>
+            <p id="activation-message" role="status" aria-live="polite">Vérification de votre accès bTV…</p>
+            <div class="activation-content">
+                <img id="activation-qr" alt="QR code à scanner depuis bTV sur le téléphone" hidden>
+                <div class="activation-form">
+                    <label for="activation-code">Ou saisissez le code de secours reçu</label>
+                    <input id="activation-code" type="text" maxlength="12" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Code d’activation bTV à huit caractères" placeholder="8 caractères" disabled>
+                    <button id="activation-claim" type="button" disabled>Activer avec ce code</button>
+                    <button id="activation-renew" type="button" disabled>Nouveau QR code</button>
+                    <button id="activation-retry" type="button">Réessayer la vérification</button>
+                    <button id="activation-exit" type="button">Quitter bTV</button>
+                </div>
+            </div>
+            <p class="activation-note">L’activation autorise bTV sur cette TV. Vos identifiants IPTV et vos données déjà enregistrées restent sur votre appareil.</p>
+        </div>
+    </div>
 
     <!-- Racine de mise a l'echelle (Parametres > Taille du texte, cf.
          applyTextSize dans app-shell.js) : canevas logique fixe 1920x1080,
@@ -47,49 +70,53 @@
 
     <!-- 2. VUE HOME (Dashboard) -->
     <div id="home-view" class="view">
-        <!-- Fond anime "aurore" verte, purement decoratif -->
-        <div class="home-aurora" aria-hidden="true">
-            <div class="aurora-blob aurora-blob-1"></div>
-            <div class="aurora-blob aurora-blob-2"></div>
-            <div class="aurora-blob aurora-blob-3"></div>
-        </div>
-
         <div class="home-header">
             <div class="home-logo"><img src="icon.png" alt="bTV" class="home-logo-icon">bTV</div>
             <div class="home-account">
                 <span class="account-expiry" id="home-expiry">Expiration : —</span>
             </div>
             <div class="home-icons">
-                <div class="home-icon" id="home-icon-user" tabindex="0"><i data-lucide="user" class="header-icon-svg"></i></div>
-                <div class="home-icon" id="home-icon-refresh" tabindex="0"><i data-lucide="refresh-cw" class="header-icon-svg"></i></div>
-                <div class="home-icon" id="home-icon-settings" tabindex="0"><i data-lucide="settings" class="header-icon-svg"></i></div>
+                <div class="home-icon" id="home-icon-user" role="button" aria-label="Compte IPTV" tabindex="0"><i data-lucide="user" class="header-icon-svg"></i></div>
+                <div class="home-icon" id="home-icon-refresh" role="button" aria-label="Actualiser" tabindex="0"><i data-lucide="refresh-cw" class="header-icon-svg"></i></div>
+                <div class="home-icon" id="home-icon-settings" role="button" aria-label="Réglages" tabindex="0"><i data-lucide="settings" class="header-icon-svg"></i></div>
             </div>
         </div>
 
         <div class="home-center">
+            <h1 class="home-greeting"><span id="home-greeting">Bonjour !</span> On regarde quoi ?</h1>
             <div class="home-menu" id="home-menu">
-                <div class="home-btn" data-target="favorites">
-                    <div class="home-btn-square"><i data-lucide="star" class="home-icon-svg"></i></div>
-                    <div class="home-btn-label">Favoris</div>
-                </div>
-                <div class="home-btn" data-target="live">
-                    <div class="home-btn-square"><i data-lucide="tv" class="home-icon-svg"></i></div>
-                    <div class="home-btn-label">En Direct</div>
-                </div>
-                <div class="home-btn" data-target="movies">
-                    <div class="home-btn-square"><i data-lucide="clapperboard" class="home-icon-svg"></i></div>
-                    <div class="home-btn-label">Films</div>
-                </div>
-                <div class="home-btn" data-target="series">
-                    <div class="home-btn-square"><i data-lucide="film" class="home-icon-svg"></i></div>
-                    <div class="home-btn-label">Séries</div>
-                </div>
-                <div class="home-btn" data-target="replay">
+                <div class="home-btn" data-target="replay" role="button" tabindex="-1">
                     <div class="home-btn-square"><i data-lucide="rotate-ccw" class="home-icon-svg"></i></div>
                     <div class="home-btn-label">Rediffusion</div>
+                    <span class="home-btn-description">Programmes passés</span>
+                </div>
+                <div class="home-btn" data-target="live" role="button" tabindex="-1">
+                    <div class="home-btn-square"><i data-lucide="tv" class="home-icon-svg"></i></div>
+                    <div class="home-btn-label">En direct</div>
+                    <span class="home-btn-description">Chaînes TV en direct</span>
+                </div>
+                <div class="home-btn" data-target="favorites" role="button" tabindex="-1">
+                    <div class="home-btn-square"><i data-lucide="star" class="home-icon-svg"></i></div>
+                    <div class="home-btn-label">Favoris</div>
+                    <span class="home-btn-description">Chaînes, films, séries</span>
+                </div>
+                <div class="home-btn" data-target="series" role="button" tabindex="-1">
+                    <div class="home-btn-square"><i data-lucide="film" class="home-icon-svg"></i></div>
+                    <div class="home-btn-label">Séries</div>
+                    <span class="home-btn-description">Séries et saisons</span>
+                </div>
+                <div class="home-btn" data-target="movies" role="button" tabindex="-1">
+                    <div class="home-btn-square"><i data-lucide="clapperboard" class="home-icon-svg"></i></div>
+                    <div class="home-btn-label">Films</div>
+                    <span class="home-btn-description">Catalogue de films</span>
                 </div>
             </div>
         </div>
+        <section id="home-continue" class="home-continue" hidden aria-labelledby="home-continue-title">
+            <h2 id="home-continue-title">Continuer à regarder</h2>
+            <div id="home-continue-row" class="home-continue-row" role="listbox" aria-label="Continuer à regarder"></div>
+        </section>
+        <p id="home-empty" class="home-empty">Vos films et épisodes commencés apparaîtront ici, avec vos dernières chaînes regardées.</p>
     </div>
 
     <!-- 3. VUE BROWSE (En Direct / Films / Series / Rediffusion) -->
@@ -455,6 +482,14 @@
     <script src="js/modals.js"></script>
     <script src="js/data.js"></script>
     <script src="js/browse.js"></script>
+    <script src="js/access-config.js"></script>
+    <script src="js/access-core.js"></script>
+    <script src="js/activation.js"></script>
+    <script src="js/home-model.js"></script>
+    <script src="js/media-store.js"></script>
+    <script src="js/android-sync.js"></script>
+    <script src="js/sync-runtime.js"></script>
+    <script src="js/home.js"></script>
     <script src="js/input.js"></script>
     <script src="js/player.js"></script>
     <script src="js/bootstrap.js"></script>

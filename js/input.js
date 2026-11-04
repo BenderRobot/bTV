@@ -10,6 +10,14 @@
 // Gestion globale des touches de la télécommande Samsung
 // ---------------------------------------------------------------
 window.addEventListener('keydown', function (e) {
+    if (window.BtvActivation && window.BtvActivation.isBlocked()) {
+        window.BtvActivation.handleKey(e);
+        return;
+    }
+    if (currentView === 'home' && [13, 37, 38, 39, 40].includes(e.keyCode)) {
+        e.preventDefault(); // Native button Enter must not also fire click.
+        if (e.keyCode === 13 && e.repeat) return;
+    }
     if (settingsModalOpen) {
         handleSettingsModalKey(e.keyCode);
         return;
@@ -91,7 +99,10 @@ function handleUp() {
         if (loginFocusIndex > 0) loginFocusIndex--;
         updateLoginFocus();
     } else if (currentView === 'home') {
-        if (homeZone === 'menu') {
+        if (homeZone === 'continue') {
+            homeZone = 'menu';
+            updateHomeFocus();
+        } else if (homeZone === 'menu') {
             homeZone = 'header';
             updateHomeFocus();
         }
@@ -156,7 +167,10 @@ function handleDown() {
         if (homeZone === 'header') {
             homeZone = 'menu';
             updateHomeFocus();
-        } else if (homeZone === 'menu' && miniPlayerActive) {
+        } else if (homeZone === 'menu' && BtvHome.hasContinue()) {
+            homeZone = 'continue';
+            updateHomeFocus();
+        } else if ((homeZone === 'menu' || homeZone === 'continue') && miniPlayerActive) {
             // Bas n'a normalement aucun effet depuis la rangee de menus
             // (rien en dessous) : sert de point d'acces au mini-lecteur
             // reduit (cf. enterMiniPlayer), affiche en bas a droite.
@@ -210,6 +224,7 @@ function handleLeft() {
     blurBrowseSearchInputs();
     if (currentView === 'home') {
         if (homeZone === 'menu') homeIndex = Math.max(0, homeIndex - 1);
+        else if (homeZone === 'continue') BtvHome.move(-1);
         else headerIndex = Math.max(0, headerIndex - 1);
         updateHomeFocus();
     } else if (currentView === 'browse') {
@@ -287,6 +302,7 @@ async function handleRight() {
     blurBrowseSearchInputs();
     if (currentView === 'home') {
         if (homeZone === 'menu') homeIndex = Math.min(HOME_BUTTONS.length - 1, homeIndex + 1);
+        else if (homeZone === 'continue') BtvHome.move(1);
         else headerIndex = Math.min(HEADER_BUTTONS.length - 1, headerIndex + 1);
         updateHomeFocus();
     } else if (currentView === 'browse') {

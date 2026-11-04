@@ -27,7 +27,9 @@ param(
     [switch]$SkipInstall,
     [switch]$SkipRun,
     [switch]$NoPush,
-    [switch]$ListDevices
+    [switch]$ListDevices,
+    [switch]$VerifyOnly,
+    [switch]$BuildOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -35,6 +37,21 @@ $ErrorActionPreference = "Stop"
 if (-not $ProjectPath) {
     $ProjectPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 }
+
+if ($VerifyOnly -and ($BuildOnly -or $ListDevices)) { throw 'Choisis VerifyOnly, BuildOnly ou ListDevices.' }
+function Invoke-BtvChecks {
+    Push-Location $ProjectPath
+    try {
+        & npm test
+        if ($LASTEXITCODE -ne 0) { throw 'Tests en échec : build et déploiement arrêtés.' }
+        & npm run lint
+        if ($LASTEXITCODE -ne 0) { throw 'Lint en échec : build et déploiement arrêtés. Lance npm ci si les dépendances manquent.' }
+        & (Join-Path $ProjectPath 'tools/test-wgt.ps1')
+    } finally { Pop-Location }
+}
+if ($VerifyOnly) { Invoke-BtvChecks; return }
+if (-not $SkipBuild -and -not $ListDevices) { Invoke-BtvChecks }
+if ($BuildOnly) { $SkipInstall = $true; $SkipRun = $true; $NoPush = $true }
 
 $tizenCli = Join-Path $TizenHome "tools\ide\bin\tizen.bat"
 $sdb = Join-Path $TizenHome "tools\sdb.exe"
@@ -145,11 +162,12 @@ function Auto-PushGit {
 }
 
 # --- Detection / reconnexion de la TV ---
+if (-not $BuildOnly) {
 Write-Host "Verification de la connexion a la TV..." -ForegroundColor Cyan
 
 if ($TvIp) {
     Write-Host "Connexion a $TvIp..." -ForegroundColor Cyan
-    & $sdb connect $TvIp | Out-Null
+    & $sdb connect $TvIp
     Start-Sleep -Seconds 2
 }
 
@@ -165,7 +183,7 @@ if (-not $readySerial) {
         Write-Host "Appareil '$offline' hors-ligne, tentative de reconnexion..." -ForegroundColor Yellow
         & $sdb disconnect $offline | Out-Null
         Start-Sleep -Seconds 1
-        & $sdb connect $offline | Out-Null
+        & $sdb connect $offline
         Start-Sleep -Seconds 2
         $readySerial = Get-ReadySerial
     }
@@ -175,7 +193,7 @@ if (-not $readySerial -and -not $TvIp) {
     $savedIp = Get-SavedTvIp
     if ($savedIp) {
         Write-Host "Aucun appareil connecte, nouvelle tentative avec la derniere IP connue ($savedIp)..." -ForegroundColor Yellow
-        & $sdb connect $savedIp | Out-Null
+        & $sdb connect $savedIp
         Start-Sleep -Seconds 2
         $readySerial = Get-ReadySerial
     }
@@ -186,7 +204,7 @@ Get-DevicesRaw | ForEach-Object { Write-Host "  $_" }
 
 if ($readySerial -match '^(\d{1,3}(\.\d{1,3}){3}):\d+$') {
     Save-TvIp $Matches[1]
-} elseif ($TvIp) {
+} elseif ($TvIp -and $readySerial) {
     Save-TvIp $TvIp
 }
 
@@ -195,7 +213,7 @@ if ($ListDevices) {
 }
 
 if (-not $readySerial -and -not $TargetSerial) {
-    throw "Aucune TV Tizen prete (etat 'device') detectee. Verifie que la TV est allumee, en mode developpeur, sur le meme reseau, puis relance avec -TvIp <ip>."
+    throw "Aucune TV Tizen prete detectee. Utilise l'IP reelle affichee dans les parametres reseau de la TV (pas une adresse d'exemple). Verifie Developer Mode, l'IP du PC dans Host PC IP, puis redemarre la TV. Le message sdb affiche plus haut donne le detail de la connexion."
 }
 
 if (-not $TargetSerial) {
@@ -206,11 +224,15 @@ if (-not $TargetSerial) {
     Write-Host "Cible auto-selectionnee : $TargetSerial" -ForegroundColor Yellow
 }
 
+}
+
 $buildResultPath = Join-Path $ProjectPath ".buildResult"
 
 if (-not $SkipBuild) {
     Write-Host "`n=== Build web ===" -ForegroundColor Cyan
-    & $tizenCli build-web -- "$ProjectPath"
+    # Only runtime assets belong in the package, never development tools or
+    # local deployment state. Keep the same exclusions for signed TV builds.
+    & $tizenCli build-web -e 'node_modules/*' '.git/*' '.git' '.github/*' 'test/*' 'tools/*' '*.ps1' 'package*.json' 'eslint.config.js' '*.md' '.tizen-deploy-state.json' 'images/grok-video-*' 'images/ChatGPT*' -- "$ProjectPath"
     if ($LASTEXITCODE -ne 0) { throw "Echec du build-web (code $LASTEXITCODE)" }
 
     Write-Host "`n=== Packaging + signature (profil '$SigningProfile') ===" -ForegroundColor Cyan
@@ -225,6 +247,7 @@ if (-not $wgtFile) {
     throw "Aucun fichier .wgt trouve dans '$buildResultPath'."
 }
 Write-Host "Package genere : $($wgtFile.FullName)" -ForegroundColor Green
+& (Join-Path $ProjectPath 'tools/verify-wgt.ps1') -Path $wgtFile.FullName -ExpectedAppId (Get-TizenAppId)
 
 if (-not $SkipInstall) {
     Write-Host "`n=== Installation sur $TargetSerial ===" -ForegroundColor Cyan

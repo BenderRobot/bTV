@@ -3,3 +3,5 @@
 # les avertissements "LF will be replaced by CRLF" a chaque commit, sans
 # changer le contenu des fichiers ni le comportement de l'app.
 * text=auto
+# Preserve the reviewed vendor bytes for hash verification on Windows and CI.
+js/vendor/*.js text eol=lf
